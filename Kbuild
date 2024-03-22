@@ -27,6 +27,10 @@ lunatik-objs += lua/lapi.o lua/lcode.o lua/lctype.o lua/ldebug.o lua/ldo.o \
 	lua/loadlib.o $(KLIBC_USR)/klibc/arch/$(KLIBC_ARCH)/setjmp.o \
 	lunatik_aux.o lunatik_obj.o lunatik_core.o
 
+luanetfilter-y += lib/luanetfilter.o lib/netfilter/kpi_compat.o lib/netfilter/lmemlib.o \
+	lib/netfilter/luapacket.o lib/netfilter/luautil.o lib/netfilter/netlink.o \
+	lib/netfilter/nf_util.o lib/netfilter/states.o lib/netfilter/xt_lua.o 
+
 obj-$(CONFIG_LUNATIK_RUN) += lunatik_run.o
 
 obj-$(CONFIG_LUNATIK_DEVICE) += lib/luadevice.o
@@ -39,5 +43,4 @@ obj-$(CONFIG_LUNATIK_FIB) += lib/luafib.o
 obj-$(CONFIG_LUNATIK_DATA) += lib/luadata.o
 obj-$(CONFIG_LUNATIK_PROBE) += lib/luaprobe.o
 obj-$(CONFIG_LUNATIK_SYSCALL) += lib/luasyscall.o
-obj-$(CONFIG_LUNATIK_XT) += lib/luaxt.o
-
+obj-$(CONFIG_LUNATIK_NETFILTER) += luanetfilter.o

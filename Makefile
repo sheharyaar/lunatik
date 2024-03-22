@@ -3,17 +3,22 @@ SCRIPTS_INSTALL_PATH = /lib/modules/lua
 LUNATIK_INSTALL_PATH = /usr/local/sbin
 LUA_API = lua/lua.h lua/lauxlib.h lua/lualib.h
 
+SUBMODULES = lib/netfilter
+SUBDIRS = $(SUBMODULES)
+
 all: lunatik_sym.h
 	make -C ${MODULES_INSTALL_PATH}/build M=${PWD} CONFIG_LUNATIK=m	\
 	CONFIG_LUNATIK_RUN=m CONFIG_LUNATIK_RUNTIME=y CONFIG_LUNATIK_DEVICE=m	\
 	CONFIG_LUNATIK_LINUX=m CONFIG_LUNATIK_NOTIFIER=m CONFIG_LUNATIK_SOCKET=m \
 	CONFIG_LUNATIK_RCU=m CONFIG_LUNATIK_THREAD=m CONFIG_LUNATIK_FIB=m \
 	CONFIG_LUNATIK_DATA=m CONFIG_LUNATIK_PROBE=m CONFIG_LUNATIK_SYSCALL=m \
-	CONFIG_LUNATIK_XT=m	
+	CONFIG_LUNATIK_NETFILTER=m
+	$(foreach dir,$(SUBDIRS),$(MAKE) -C $(dir) all;)
 
 clean:
 	make -C ${MODULES_INSTALL_PATH}/build M=${PWD} clean
 	rm lunatik_sym.h
+	$(foreach dir,$(SUBDIRS),$(MAKE) -C $(dir) clean;)
 
 scripts_install:
 	mkdir -p -m 0755 ${SCRIPTS_INSTALL_PATH} ${SCRIPTS_INSTALL_PATH}/socket
@@ -53,4 +58,3 @@ uninstall: scripts_uninstall modules_uninstall
 
 lunatik_sym.h: $(LUA_API)
 	${shell ./gensymbols.sh $(LUA_API) > lunatik_sym.h}
-
