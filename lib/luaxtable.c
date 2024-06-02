@@ -31,6 +31,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include <lunatik.h>
+#include "luadata.h"
 
 typedef enum luaxtable_type_e {
 	LUAXTABLE_TMATCH,
@@ -46,32 +47,124 @@ typedef struct luaxtable_s {
 	luaxtable_type_t type;
 } luaxtable_t;
 
+#define luaxtable_getcb(L, op, ret)				\
+do {								\
+	/* TODO: find the match from the rcu table */		\
+	if (xtable_match == NULL) {				\
+		pr_err("match: xtable_match is NULL\n");	\
+		return ret;					\
+	}							\
+								\
+	L = lunatik_getstate(xtable_match->runtime);		\
+	if (lunatik_getregistry(L, xtable_match) != LUA_TTABLE) {	\
+		pr_err("could not find table for match ops\n");	\
+		return ret;					\
+	}							\
+								\
+	if (lua_getfield(L, -1, op) != LUA_TFUNCTION) {		\
+		pr_err("%s isn't defined\n", op);		\
+		return ret;					\
+	}							\
+} while(0)
+
+#define luaxtable_run(L, op, ret, nargs)			\
+do {								\
+	if (lua_pcall(L, nargs, 1, 0) != 0) {			\
+		pr_err("%s error: %s\n", op, lua_tostring(L, -1));	\
+		return ret;					\
+	}							\
+} while(0)
+
+static inline void luaxtable_newdata(lua_State *L, void *ptr, size_t size, bool sleep)
+{
+	lunatik_require(L, data);
+
+	lunatik_object_t *data = lunatik_checknull(L, luadata_new(ptr, size, sleep));
+	lunatik_cloneobject(L, data);
+}
+
 static bool luaxtable_match(const struct sk_buff *skb, struct xt_action_param *par)
 {
-	return true;
+	lua_State* L;
+	int ret = NF_DROP;
+
+	luaxtable_getcb(L, "match", ret);
+
+	luaxtable_newdata(L, skb, sizeof(struct sk_buff), false);
+	luaxtable_newdata(L, par, sizeof(struct xt_action_param), false);
+
+	luaxtable_run(L, "match", ret, 2);
+	ret = lua_tointeger(L, -1);
+
+	pr_err("returned value : %d\n",ret);
+	return ret < 0 ? NF_DROP : ret;
 }
 
 static int luaxtable_match_check(const struct xt_mtchk_param *par)
 {
-	return 0;
+	lua_State* L;
+	int ret = -EINVAL;
+
+	luaxtable_getcb(L, "checkentry", ret);
+
+	luaxtable_newdata(L, par, sizeof(struct xt_mtchk_param), false);
+
+	luaxtable_run(L, "checkentry", ret, 1);
+	ret = lua_tointeger(L, -1);
+
+	pr_err("returned value : %d\n",ret);
+	return ret < 0 ? -EINVAL : ret;
 }
 
 static void luaxtable_match_destroy(const struct xt_mtdtor_param *par)
 {
+	lua_State* L;
+	luaxtable_getcb(L, "destroy",);
+
+	luaxtable_newdata(L, par, sizeof(struct xt_mtdtor_param), false);
+	luaxtable_run(L, "destroy",, 1);
 }
 
 static unsigned int luaxtable_target(struct sk_buff *skb, const struct xt_action_param *par)
 {
-	return NF_ACCEPT;
+	lua_State* L;
+	int ret = NF_DROP;
+
+	luaxtable_getcb(L, "target", ret);
+
+	luaxtable_newdata(L, skb, sizeof(struct sk_buff), false);
+	luaxtable_newdata(L, par, sizeof(struct xt_action_param), false);
+
+	luaxtable_run(L, "target", ret, 2);
+	ret = lua_tointeger(L, -1);
+
+	pr_err("returned value : %d\n",ret);
+	return ret < 0 ? NF_DROP : ret;
 }
 
 static int luaxtable_target_check(const struct xt_tgchk_param *par)
 {
-	return 0;
+	lua_State* L;
+	int ret = -EINVAL;
+
+	luaxtable_getcb(L, "checkentry", ret);
+
+	luaxtable_newdata(L, par, sizeof(struct xt_tgchk_param), false);
+
+	luaxtable_run(L, "checkentry", ret, 1);
+	ret = lua_tointeger(L, -1);
+
+	pr_err("returned value : %d\n",ret);
+	return ret < 0 ? -EINVAL : ret;
 }
 
 static void luaxtable_target_destroy(const struct xt_tgdtor_param *par)
 {
+	lua_State* L;
+	luaxtable_getcb(L, "destroy",);
+
+	luaxtable_newdata(L, par, sizeof(struct xt_tgdtor_param), false);
+	luaxtable_run(L, "destroy",, 1);
 }
 
 static void luaxtable_release(void *private);
@@ -137,6 +230,9 @@ static int luaxtable_new##hook(lua_State *L) 				\
 	luaxtable_setinteger(L, 1, hook, revision);			\
 	luaxtable_setinteger(L, 1, hook, family);			\
 	luaxtable_setinteger(L, 1, hook, proto);			\
+	lunatik_checkfield(L, 1, "checkentry", LUA_TFUNCTION);		\
+	lunatik_checkfield(L, 1, "destroy", LUA_TFUNCTION);		\
+	lunatik_checkfield(L, 1, #hook, LUA_TFUNCTION);			\
 									\
 	hook->hook = luaxtable_##hook;					\
 	hook->checkentry = luaxtable_##hook##_check;			\
