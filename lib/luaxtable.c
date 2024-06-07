@@ -108,15 +108,12 @@ do {								\
 	lua_pop(L, 1);						\
 } while (0)
 
-static inline lunatik_object_t *luaxtable_new(lua_State *L, int idx, int hook)
+static inline lunatik_object_t *luaxtable_new(lua_State *L, int hook)
 {
 	lunatik_object_t *object = lunatik_newobject(L, &luaxtable_class , sizeof(luaxtable_t));
 	luaxtable_t *xtable = (luaxtable_t *)object->private;
 
-	xtable->runtime = lunatik_toruntime(L);
 	xtable->type = hook;
-	lunatik_getobject(xtable->runtime);
-	lunatik_registerobject(L, idx, object);
 	return object;
 }
 
@@ -125,7 +122,7 @@ static int luaxtable_new##hook(lua_State *L) 				\
 {									\
 	luaL_checktype(L, 1, LUA_TTABLE);				\
 									\
-	lunatik_object_t *object = luaxtable_new(L, 1, HOOK); 		\
+	lunatik_object_t *object = luaxtable_new(L, HOOK); 		\
 	luaxtable_t *xtable = (luaxtable_t *)object->private;		\
 	xtable->hook = NULL;						\
 									\
@@ -144,6 +141,10 @@ static int luaxtable_new##hook(lua_State *L) 				\
 									\
 	if (xt_register_##hook(hook) != 0)				\
 		luaL_error(L, "unable to register " #hook);		\
+									\
+	xtable->runtime = lunatik_toruntime(L);				\
+	lunatik_getobject(xtable->runtime);				\
+	lunatik_registerobject(L, 1, object);				\
 	return 1;							\
 }
 
@@ -151,7 +152,9 @@ static int luaxtable_new##hook(lua_State *L) 				\
 static inline void luaxtable_release##hook(luaxtable_t *xtable) \
 {                                                               \
 	if (xtable->hook) {                                     \
-		xt_unregister_##hook(xtable->hook);             \
+		if(xtable->hook->family)			\
+			xt_unregister_##hook(xtable->hook);     \
+								\
 		lunatik_free(xtable->hook);                     \
 		xtable->hook = NULL;                            \
 	}							\
@@ -200,6 +203,7 @@ static const luaL_Reg luaxtable_lib[] = {
 
 static void luaxtable_release(void *private)
 {
+	pr_err("luaxtable release called\n");
 	luaxtable_t *xtable = (luaxtable_t *)private;
 
 	switch (xtable->type) {
@@ -211,7 +215,8 @@ static void luaxtable_release(void *private)
 		break;
 	}
 
-	lunatik_putobject(xtable->runtime);
+	if (xtable->runtime)
+		lunatik_putobject(xtable->runtime);
 }
 
 LUNATIK_NEWLIB(xtable, luaxtable_lib, &luaxtable_class, luanetfilter_flags);
