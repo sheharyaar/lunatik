@@ -43,6 +43,7 @@ typedef enum luaxtable_type_e {
 
 typedef struct luaxtable_s {
 	lunatik_object_t *runtime;
+	lunatik_object_t *skb;
 	union {
 		struct xt_match match;
 		struct xt_target target;
@@ -53,13 +54,6 @@ typedef struct luaxtable_s {
 
 static lunatik_object_t *xtable_targethooks = NULL;
 static lunatik_object_t *xtable_matchhooks = NULL;
-
-static inline void luaxtable_newdata(lua_State *L, void *ptr, size_t size, bool sleep)
-{
-	lunatik_require(L, data);
-	lunatik_object_t *data = lunatik_checknull(L, luadata_new(ptr, size, sleep));
-	lunatik_cloneobject(L, data);
-}
 
 #define luaxtable_getrcu(xtable, hook, key, keylen)			\
 do {									\
@@ -85,6 +79,7 @@ static int luaxtable_invoke(lua_State *L, luaxtable_t *xtable, struct sk_buff *s
 	int base = lua_gettop(L);
 	int ret = -ENXIO;
 	int nargs = 0;
+	lunatik_object_t *data = NULL;
 
 	if (lunatik_getregistry(L, xtable) != LUA_TTABLE) {
 		pr_err("could not find ops table\n");
@@ -97,7 +92,13 @@ static int luaxtable_invoke(lua_State *L, luaxtable_t *xtable, struct sk_buff *s
 	}
 
 	if (skb != NULL ){
-		luaxtable_newdata(L, skb, sizeof(struct sk_buff), false);
+		if (lunatik_getregistry(L, xtable->skb) != LUA_TUSERDATA) {
+			pr_err("could not find skb\n");
+			goto err;
+		}
+
+		data = (lunatik_object_t *)lunatik_toobject(L, -1);
+		luadata_reset(data, skb, sizeof(struct sk_buff));
 		nargs = 1;
 	}
 
@@ -107,8 +108,12 @@ static int luaxtable_invoke(lua_State *L, luaxtable_t *xtable, struct sk_buff *s
 		goto err;
 	}
 
+	if (data)
+		luadata_clear(data);
 	return nret > 0 ? luaL_optinteger(L, -1, 0) : 0;
 err:
+	if (data)
+		luadata_clear(data);
 	lua_settop(L, base); /* pop everything, including args */
 	return ret;
 }
@@ -178,6 +183,15 @@ static const lunatik_class_t luaxtable_class = {
 	.sleep = false,
 };
 
+#define luaxtable_setbuf(L, idx, buf) 			\
+do {							\
+	lunatik_require(L, data);			\
+	buf = lunatik_checknull(L, luadata_new(NULL, 0, false));	\
+	lunatik_cloneobject(L, buf);			\
+	lunatik_setregistry(L, -1, buf);		\
+	lua_pop(L, 1);					\
+} while (0)
+
 #define luaxtable_setinteger(L, idx, hook, field) 		\
 do {								\
 	lunatik_checkfield(L, idx, #field, LUA_TNUMBER);	\
@@ -205,6 +219,7 @@ static inline lunatik_object_t *luaxtable_new(lua_State *L, int idx, int hook)
 	xtable->type = hook;
 	xtable->runtime = NULL;
 	luaxtable_setinteger(L, idx, xtable, fallback);
+	luaxtable_setbuf(L, idx, xtable->skb);
 	return object;
 }
 
