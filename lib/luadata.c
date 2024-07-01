@@ -13,10 +13,13 @@
 
 #include <lunatik.h>
 
+#include "luadata.h"
+
 typedef struct luadata_s {
 	char *ptr;
 	size_t size;
 	bool free;
+	bool editable;
 } luadata_t;
 
 #define LUADATA_NUMBER_SZ	(sizeof(lua_Integer))
@@ -34,6 +37,12 @@ static inline luadata_t *luadata_checkdata(lua_State *L, lua_Integer *offset, lu
 
 #define luadata_checkint(L, offset, T)	luadata_checkdata((L), &(offset), sizeof(T##_t))
 
+#define LUADATA_EDITABLECHECKER(data) 			\
+do {							\
+	if (!data->editable) 				\
+		luaL_error(L, "data is not editable"); 	\
+} while (0)
+
 #define LUADATA_NEWINT_GETTER(T) 	\
 static int luadata_get##T(lua_State *L) \
 {					\
@@ -47,7 +56,8 @@ static int luadata_get##T(lua_State *L) \
 static int luadata_set##T(lua_State *L)		\
 {						\
 	lua_Integer offset;			\
-	luadata_t *data = luadata_checkint(L, offset, T);			\
+	luadata_t *data = luadata_checkint(L, offset, T);	\
+	LUADATA_EDITABLECHECKER(data);		\
 	*(T##_t *)(data->ptr + offset) = (T##_t)luaL_checkinteger(L, 3);	\
 	return 0;				\
 }
@@ -84,7 +94,7 @@ static int luadata_setstring(lua_State *L)
 	size_t length;
 	const char *str = luaL_checklstring(L, 3, &length);
 	luadata_t *data = luadata_checkdata(L, &offset, (lua_Integer)length);
-
+	LUADATA_EDITABLECHECKER(data);
 	memcpy(data->ptr + offset, str, length);
 	return 0;
 }
@@ -149,12 +159,13 @@ static int luadata_lnew(lua_State *L)
 	data->ptr = lunatik_checkalloc(L, size);
 	data->size = size;
 	data->free = true;
+	data->editable = true;
 	return 1; /* object */
 }
 
 LUNATIK_NEWLIB(data, luadata_lib, &luadata_class, NULL);
 
-lunatik_object_t *luadata_new(void *ptr, size_t size, bool sleep)
+lunatik_object_t *luadata_new(void *ptr, size_t size, bool sleep, bool editable)
 {
 	lunatik_object_t *object = lunatik_createobject(&luadata_class, sizeof(luadata_t), sleep);
 
@@ -163,29 +174,45 @@ lunatik_object_t *luadata_new(void *ptr, size_t size, bool sleep)
 		data->ptr = ptr;
 		data->size = size;
 		data->free = false;
+		data->editable = editable;
 	}
 	return object;
 }
 EXPORT_SYMBOL(luadata_new);
 
-int luadata_reset(lunatik_object_t *object, void *ptr, size_t size)
+#define luadata_resetter(object, data, p, sz)		\
+do {						\
+	data = (luadata_t *)object->private;	\
+	if (data->free) {			\
+		lunatik_unlock(object);		\
+		return -1;			\
+	}					\
+	data->ptr = p;				\
+	data->size = sz;			\
+} while(0)
+
+int luadata_reset(lunatik_object_t *object, void *ptr, size_t size, bool editable)
 {
 	luadata_t *data;
 
 	lunatik_lock(object);
-	data = (luadata_t *)object->private;
+	luadata_resetter(object, data, ptr, size);
+	data->editable = editable;
 
-	if (data->free) {
-		lunatik_unlock(object);
-		return -1;
-	}
-
-	data->ptr = ptr;
-	data->size = size;
 	lunatik_unlock(object);
 	return 0;
 }
 EXPORT_SYMBOL(luadata_reset);
+
+int luadata_clear(lunatik_object_t *object)
+{
+	luadata_t *data;
+	lunatik_lock(object);
+	luadata_resetter(object, data, NULL, 0);
+	lunatik_unlock(object);
+	return 0;
+}
+EXPORT_SYMBOL(luadata_clear);
 
 static int __init luadata_init(void)
 {
