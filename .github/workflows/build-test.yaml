@@ -1,43 +1,67 @@
 name: build-test
-
-on:
+'on':
   push:
     branches:
       - feat/gh-workflow
   pull_request:
-
+    braches:
+      - master
 jobs:
   run:
-    runs-on: ubuntu-22.04
-
+    runs-on: ubuntu-latest
     steps:
-      ### DEPENDENCIES ###
-
-      # Hard turn-off interactive mode
-      - run: echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
-
-      # Install base dependencies
-      - run: sudo apt update
-      - run: sudo apt install --yes \
-          git qemu-kvm udev iproute2 busybox-static coreutils \
-          python3-requests libvirt-clients kbd kmod file rsync zstd
-
-      ### END DEPENDENCIES ###
-
-      # Checkout this repository and branch
+      - name: Install virtme-ng
+        run: >
+          sudo apt update && sudo apt install -y virtme-ng
       - uses: actions/checkout@v4
         with:
           submodules: true
 
-      # Install build dependencies inside the guest
-      - name: "Run build in v6.6 with virtme-ng"
+      - name: Prerequisites and build script
         run: |
-          ./vng -r v6.6 --script - <<'EOF'
-            sudo apt update
-            sudo apt install -y git build-essential lua5.4 dwarves clang llvm \
-              libelf-dev linux-headers-$(uname -r) linux-tools-common \
-              linux-tools-$(uname -r) pkg-config libpcap-dev m4
+          cat <<'EOF' > build.sh
+          #!/bin/bash
+          set -e
 
-            make
+          KERNEL_VER_ARG=$1
+          URL_PREFIX="https://kernel.ubuntu.com/~kernel-ppa/mainline/${KERNEL_VER_ARG}/amd64"
+
+          echo "Download Prerequisites"
+          sudo apt update && \
+          sudo apt install -y git build-essential lua5.4 dwarves clang llvm \
+            libelf-dev linux-tools-common \
+            pkg-config libpcap-dev m4
+
+          echo "Downloading the kernel headers"
+          curl -s "${URL_PREFIX}/CHECKSUMS" \
+            | grep -E "linux-headers.*amd64.deb" \
+            | cut -d ' ' -f 3 \
+            | sort | uniq > files.txt
+
+          cat files.txt
+
+          # Download the headers
+          # Read each line of files.txt
+          while IFS= read -r line; do
+                FULL_URL="${URL_PREFIX}/${line}"
+
+                echo "Downloading $FULL_URL"
+                wget -q "$FULL_URL" -O "$line" || { echo "Failed to download $line"; continue; }
+
+                echo "Installing $line"
+                sudo dpkg -i "$line"
+          done < files.txt
+          
+          echo "Fixing missing dependencies"
+          sudo apt-get install -f -y
+
+          echo "Starting build"
+          make
           EOF
+
+          chmod +x build.sh
+
+      - name: Run build in v6.8 with virtme-ng
+        run: |
+          vng -r v6.8 --exec ./build.sh --network user
 
