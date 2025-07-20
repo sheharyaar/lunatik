@@ -1,0 +1,43 @@
+name: build-test
+
+on:
+  push:
+    branches:
+      - feat/gh-workflow
+  pull_request:
+
+jobs:
+  run:
+    runs-on: ubuntu-22.04
+
+    steps:
+      ### DEPENDENCIES ###
+
+      # Hard turn-off interactive mode
+      - run: echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
+
+      # Install base dependencies
+      - run: sudo apt update
+      - run: sudo apt install --yes \
+          git qemu-kvm udev iproute2 busybox-static coreutils \
+          python3-requests libvirt-clients kbd kmod file rsync zstd
+
+      ### END DEPENDENCIES ###
+
+      # Checkout this repository and branch
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Install build dependencies inside the guest
+      - name: "Run build in v6.6 with virtme-ng"
+        run: |
+          ./vng -r v6.6 --script - <<'EOF'
+            sudo apt update
+            sudo apt install -y git build-essential lua5.4 dwarves clang llvm \
+              libelf-dev linux-headers-$(uname -r) linux-tools-common \
+              linux-tools-$(uname -r) pkg-config libpcap-dev m4
+
+            make
+          EOF
+
