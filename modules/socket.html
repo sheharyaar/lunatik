@@ -33,14 +33,16 @@
 
 <h2>Contents</h2>
 <ul>
-<li><a href="#Class_socket">Class socket </a></li>
+<li><a href="#Functions">Functions</a></li>
 <li><a href="#socket">socket</a></li>
 </ul>
 
 
 <h2>Modules</h2>
 <ul class="nowrap">
+  <li><a href="../modules/byteorder.html">byteorder</a></li>
   <li><a href="../modules/completion.html">completion</a></li>
+  <li><a href="../modules/cpu.html">cpu</a></li>
   <li><a href="../modules/crypto.aead.html">crypto.aead</a></li>
   <li><a href="../modules/crypto.comp.html">crypto.comp</a></li>
   <li><a href="../modules/crypto.rng.html">crypto.rng</a></li>
@@ -50,6 +52,7 @@
   <li><a href="../modules/device.html">device</a></li>
   <li><a href="../modules/fib.html">fib</a></li>
   <li><a href="../modules/fifo.html">fifo</a></li>
+  <li><a href="../modules/hid.html">hid</a></li>
   <li><a href="../modules/linux.html">linux</a></li>
   <li><a href="../modules/lunatik.html">lunatik</a></li>
   <li><a href="../modules/lunatik.runner.html">lunatik.runner</a></li>
@@ -59,8 +62,11 @@
   <li><a href="../modules/notifier.html">notifier</a></li>
   <li><a href="../modules/probe.html">probe</a></li>
   <li><a href="../modules/rcu.html">rcu</a></li>
+  <li><a href="../modules/signal.html">signal</a></li>
   <li><strong>socket</strong></li>
   <li><a href="../modules/socket.inet.html">socket.inet</a></li>
+  <li><a href="../modules/socket.raw.html">socket.raw</a></li>
+  <li><a href="../modules/socket.unix.html">socket.unix</a></li>
   <li><a href="../modules/syscall.html">syscall</a></li>
   <li><a href="../modules/syscall.table.html">syscall.table</a></li>
   <li><a href="../modules/thread.html">thread</a></li>
@@ -96,42 +102,42 @@
     </ul>
 
 
-<h2><a href="#Class_socket">Class socket </a></h2>
+<h2><a href="#Functions">Functions</a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#socket:accept">socket:accept (self[, flags=0])</a></td>
+	<td class="name" nowrap><a href="#accept">accept (self[, flags=0])</a></td>
 	<td class="summary">Accepts a connection on a listening socket.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:bind">socket:bind (addr[, port])</a></td>
+	<td class="name" nowrap><a href="#bind">bind (addr[, port])</a></td>
 	<td class="summary">Binds the socket to a local address.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:close">socket:close ()</a></td>
+	<td class="name" nowrap><a href="#close">close ()</a></td>
 	<td class="summary">Closes the socket.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:connect">socket:connect (addr[, port[, flags=0]])</a></td>
+	<td class="name" nowrap><a href="#connect">connect (addr[, port[, flags=0]])</a></td>
 	<td class="summary">Initiates a connection on a socket.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:getpeername">socket:getpeername ()</a></td>
+	<td class="name" nowrap><a href="#getpeername">getpeername ()</a></td>
 	<td class="summary">Gets the address of the peer to which the socket is connected.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:getsockname">socket:getsockname ()</a></td>
+	<td class="name" nowrap><a href="#getsockname">getsockname ()</a></td>
 	<td class="summary">Gets the local address to which the socket is bound.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:listen">socket:listen ([backlog])</a></td>
+	<td class="name" nowrap><a href="#listen">listen ([backlog])</a></td>
 	<td class="summary">Puts a connection-oriented socket into the listening state.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:receive">socket:receive (length[, flags=0[, from=false]])</a></td>
+	<td class="name" nowrap><a href="#receive">receive (length[, flags=0[, from=false]])</a></td>
 	<td class="summary">Receives a message from the socket.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#socket:send">socket:send (message[, addr[, port]])</a></td>
+	<td class="name" nowrap><a href="#send">send (message[, addr[, port]])</a></td>
 	<td class="summary">Sends a message through the socket.</td>
 	</tr>
 </table>
@@ -163,18 +169,12 @@
 <br/>
 
 
-    <h2 class="section-header has-description"><a name="Class_socket"></a>Class socket </h2>
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
 
-          <div class="section-description">
-          Represents a kernel socket object.
- This is a userdata object returned by <code>socket.new()</code> or <code>sock:accept()</code>.
- It encapsulates a kernel <code>struct socket</code> and provides methods for network
- operations.
-          </div>
     <dl class="function">
     <dt>
-    <a name = "socket:accept"></a>
-    <strong>socket:accept (self[, flags=0])</strong>
+    <a name = "accept"></a>
+    <strong>accept (self[, flags=0])</strong>
     </dt>
     <dd>
     Accepts a connection on a listening socket.
@@ -185,7 +185,7 @@
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">self</span>
-            <span class="types"><a class="type" href="../modules/socket.html#socket">socket</a></span>
+            <span class="types"><span class="type">socket</span></span>
          The listening socket object.
         </li>
         <li><span class="parameter">flags</span>
@@ -199,7 +199,7 @@
     <h3>Returns:</h3>
     <ol>
 
-           <span class="types"><a class="type" href="../modules/socket.html#socket">socket</a></span>
+           <span class="types"><span class="type">socket</span></span>
         A new socket object representing the accepted connection.
     </ol>
 
@@ -210,8 +210,8 @@
 
 </dd>
     <dt>
-    <a name = "socket:bind"></a>
-    <strong>socket:bind (addr[, port])</strong>
+    <a name = "bind"></a>
+    <strong>bind (addr[, port])</strong>
     </dt>
     <dd>
     Binds the socket to a local address.
@@ -230,22 +230,19 @@
     <li><code>AF_INET</code> (IPv4): An integer representing the IPv4 address (e.g., from <code>net.aton()</code>).
      Use <code>0</code> (or <code>net.aton(&quot;0.0.0.0&quot;)</code>) to bind to all available interfaces.
      The <code>port</code> argument is also required.</li>
-    <li><code>AF_PACKET</code>:
-    <ul>
-        <li>If <code>addr</code> is an integer: It's treated as the network interface index (e.g., from <code>linux.ifindex(&quot;eth0&quot;)</code>).
-        The <code>sll_protocol</code> field of the underlying <code>sockaddr_ll</code> structure would need to be set to <code>htons(ETH_P_ALL)</code> or similar
-        if not binding to a specific protocol via other means (e.g. <a href="../modules/socket.html#new">socket.new</a>'s protocol argument for <code>AF_PACKET</code> might set this).</li>
-        <li>If <code>addr</code> is a string: It's a packed string directly representing parts of the <code>sockaddr_ll</code> structure
-        (specifically, the fields after <code>sll_family</code>, like <code>sll_protocol</code>).
-        Example from <code>tap.lua</code> for binding to <code>ETH_P_ALL</code> (0x0003): <code>sock:bind(string.pack(&quot;&gt;H&quot;, 0x0003))</code>.</li>
-    </ul></li>
-    <li>Other families: A packed string representing the family-specific address structure.</li>
+    <li><code>AF_PACKET</code>: An integer representing the ethernet protocol in host byte order
+     (e.g., <code>0x0003</code> for <code>ETH_P_ALL</code>, <code>0x88CC</code> for <code>ETH_P_LLDP</code>)
+     The <code>port</code> argument is also required.</li>
+    <li>Other families: A packed string directly representing parts of the family-specific address structure.</li>
 </ul>
+
 
         </li>
         <li><span class="parameter">port</span>
             <span class="types"><span class="type">integer</span></span>
-         The local port number (required and used only if the family is <code>AF_INET</code>).
+         The local port or interface index.
+   - <code>AF_INET</code>: TCP/UDP port number.
+   - <code>AF_PACKET</code>: Network interface index (e.g., from <code>linux.ifindex(&quot;eth0&quot;)</code>).
          (<em>optional</em>)
         </li>
     </ul>
@@ -273,14 +270,14 @@
         <pre class="example"><span class="comment">-- Bind TCP/IPv4 socket to localhost, port 8080
 </span>tcp_server_sock:<span class="function-name">bind</span>(net.<span class="function-name">aton</span>(<span class="string">"127.0.0.1"</span>), <span class="number">8080</span>)
 
-<span class="comment">-- Bind AF_PACKET socket to receive all protocols (ETH_P_ALL = 0x0003)
-</span>af_packet_sock:<span class="function-name">bind</span>(<span class="global">string</span>.<span class="function-name">pack</span>(<span class="string">"&gt;H"</span>, <span class="number">0x0003</span>))</pre>
+<span class="comment">-- Bind AF_PACKET socket to protocol <code>ETH_P_LLDP</code> on a specific interface
+</span>af_packet_sock:<span class="function-name">bind</span>(<span class="number">0x88CC</span>, linux.<span class="function-name">ifindex</span>(<span class="string">"eth0"</span>))</pre>
     </ul>
 
 </dd>
     <dt>
-    <a name = "socket:close"></a>
-    <strong>socket:close ()</strong>
+    <a name = "close"></a>
+    <strong>close ()</strong>
     </dt>
     <dd>
     Closes the socket.
@@ -305,13 +302,13 @@
 
 </dd>
     <dt>
-    <a name = "socket:connect"></a>
-    <strong>socket:connect (addr[, port[, flags=0]])</strong>
+    <a name = "connect"></a>
+    <strong>connect (addr[, port[, flags=0]])</strong>
     </dt>
     <dd>
     Initiates a connection on a socket.
  This is typically used by client sockets to establish a connection to a server.
- For datagram sockets, this sets the default destination address for <a href="../modules/socket.html#socket:send">send</a> and
+ For datagram sockets, this sets the default destination address for <a href="../modules/socket.html#send">send</a> and
  the only address from which datagrams are received.
 
 
@@ -362,8 +359,8 @@
 
 </dd>
     <dt>
-    <a name = "socket:getpeername"></a>
-    <strong>socket:getpeername ()</strong>
+    <a name = "getpeername"></a>
+    <strong>getpeername ()</strong>
     </dt>
     <dd>
     Gets the address of the peer to which the socket is connected.
@@ -402,8 +399,8 @@
 
 </dd>
     <dt>
-    <a name = "socket:getsockname"></a>
-    <strong>socket:getsockname ()</strong>
+    <a name = "getsockname"></a>
+    <strong>getsockname ()</strong>
     </dt>
     <dd>
     Gets the local address to which the socket is bound.
@@ -439,8 +436,8 @@
 
 </dd>
     <dt>
-    <a name = "socket:listen"></a>
-    <strong>socket:listen ([backlog])</strong>
+    <a name = "listen"></a>
+    <strong>listen ([backlog])</strong>
     </dt>
     <dd>
     Puts a connection-oriented socket into the listening state.
@@ -478,8 +475,8 @@
 
 </dd>
     <dt>
-    <a name = "socket:receive"></a>
-    <strong>socket:receive (length[, flags=0[, from=false]])</strong>
+    <a name = "receive"></a>
+    <strong>receive (length[, flags=0[, from=false]])</strong>
     </dt>
     <dd>
     Receives a message from the socket.
@@ -542,8 +539,8 @@
 
 </dd>
     <dt>
-    <a name = "socket:send"></a>
-    <strong>socket:send (message[, addr[, port]])</strong>
+    <a name = "send"></a>
+    <strong>send (message[, addr[, port]])</strong>
     </dt>
     <dd>
     Sends a message through the socket. </p>
@@ -1110,7 +1107,7 @@
     <h3>Returns:</h3>
     <ol>
 
-           <span class="types"><a class="type" href="../modules/socket.html#socket">socket</a></span>
+           <span class="types"><span class="type">socket</span></span>
         A new socket object.
     </ol>
 
@@ -1194,7 +1191,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2025-07-20 12:55:55 </i>
+<i style="float:right;">Last updated 2026-01-21 05:27:21 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

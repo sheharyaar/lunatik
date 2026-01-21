@@ -36,8 +36,8 @@
 <li><a href="#Setup">Setup </a></li>
 <li><a href="#Usage">Usage </a></li>
 <li><a href="#Lua_Version">Lua Version </a></li>
-<li><a href="#Lunatik_C_API">Lunatik C API </a></li>
 <li><a href="#Lunatik_Lua_APIs">Lunatik Lua APIs </a></li>
+<li><a href="#Lunatik_C_API">Lunatik C API </a></li>
 <li><a href="#References">References </a></li>
 <li><a href="#License">License </a></li>
 </ul>
@@ -49,7 +49,9 @@
 </ul>
 <h2>Modules</h2>
 <ul class="nowrap">
+  <li><a href="../modules/byteorder.html">byteorder</a></li>
   <li><a href="../modules/completion.html">completion</a></li>
+  <li><a href="../modules/cpu.html">cpu</a></li>
   <li><a href="../modules/crypto.aead.html">crypto.aead</a></li>
   <li><a href="../modules/crypto.comp.html">crypto.comp</a></li>
   <li><a href="../modules/crypto.rng.html">crypto.rng</a></li>
@@ -59,6 +61,7 @@
   <li><a href="../modules/device.html">device</a></li>
   <li><a href="../modules/fib.html">fib</a></li>
   <li><a href="../modules/fifo.html">fifo</a></li>
+  <li><a href="../modules/hid.html">hid</a></li>
   <li><a href="../modules/linux.html">linux</a></li>
   <li><a href="../modules/lunatik.html">lunatik</a></li>
   <li><a href="../modules/lunatik.runner.html">lunatik.runner</a></li>
@@ -68,8 +71,11 @@
   <li><a href="../modules/notifier.html">notifier</a></li>
   <li><a href="../modules/probe.html">probe</a></li>
   <li><a href="../modules/rcu.html">rcu</a></li>
+  <li><a href="../modules/signal.html">signal</a></li>
   <li><a href="../modules/socket.html">socket</a></li>
   <li><a href="../modules/socket.inet.html">socket.inet</a></li>
+  <li><a href="../modules/socket.raw.html">socket.raw</a></li>
+  <li><a href="../modules/socket.unix.html">socket.unix</a></li>
   <li><a href="../modules/syscall.html">syscall</a></li>
   <li><a href="../modules/syscall.table.html">syscall.table</a></li>
   <li><a href="../modules/thread.html">thread</a></li>
@@ -88,7 +94,7 @@
 It is composed by the Lua interpreter modified to run in the kernel;
 a <a href="driver.lua">device driver</a> (written in Lua =)) and a <a href="bin/lunatik">command line tool</a>
 to load and run scripts and manage runtime environments from the user space;
-a <a href="#lunatik-c-api">C API</a> to load and run scripts and manage runtime environments from the kernel;
+a <a href="doc/capi.md">C API</a> to load and run scripts and manage runtime environments from the kernel;
 and <a href="#lunatik-lua-apis">Lua APIs</a> for binding kernel facilities to Lua scripts.</p>
 
 <blockquote>
@@ -108,10 +114,8 @@ to generate random ASCII printable characters:</p>
 <span class="keyword">local</span> device = <span class="global">require</span>(<span class="string">"device"</span>)
 <span class="keyword">local</span> linux  = <span class="global">require</span>(<span class="string">"linux"</span>)
 
-<span class="keyword">local</span> <span class="keyword">function</span> <span class="function-name">nop</span>() <span class="keyword">end</span> <span class="comment">-- do nothing
-</span>
 <span class="keyword">local</span> s = linux.stat
-<span class="keyword">local</span> driver = {name = <span class="string">"passwd"</span>, open = nop, release = nop, mode = s.IRUGO}
+<span class="keyword">local</span> driver = {name = <span class="string">"passwd"</span>, mode = s.IRUGO}
 
 <span class="keyword">function</span> driver:<span class="function-name">read</span>() <span class="comment">-- read(2) callback
 </span> <span class="comment">-- generate random ASCII printable characters
@@ -167,7 +171,7 @@ compiled on kernel upgrade.</p>
 <h2>Usage</h2>
 
 <pre><code> sudo lunatik # execute Lunatik REPL
- Lunatik 3.7  Copyright (C) 2023-2025 ring-0 Ltda.
+ Lunatik 4.0  Copyright (C) 2023-2026 Ring Zero Desenvolvimento de Software LTDA.
  &gt; return 42 -- execute this line in the kernel
  42
 </code></pre>
@@ -196,226 +200,73 @@ usage: lunatik [<span class="global">load</span>|unload|reload|status|list] [run
 <p><a name="Lua_Version"></a></p>
 <h2>Lua Version</h2>
 
-<p>Lunatik 3.7 is based on
-<a href="https://github.com/luainkernel/lua">Lua 5.4 adapted</a>
+<p>Lunatik 4.0 is based on
+<a href="https://github.com/luainkernel/lua">Lua 5.5 adapted</a>
 to run in the kernel.</p>
 
 <h3>Floating-point numbers</h3>
 
 <p>Lunatik <strong>does not</strong> support floating-point arithmetic,
 thus it <strong>does not</strong> support <code>__div</code> nor <code>__pow</code>
-<a href="https://www.lua.org/manual/5.4/manual.html#2.4">metamethods</a>
+<a href="https://www.lua.org/manual/5.5/manual.html#2.4">metamethods</a>
 and the type <em>number</em> has only the subtype <em>integer</em>.</p>
 
 <h3>Lua API</h3>
 
-<p>Lunatik <strong>does not</strong> support both <a href="https://www.lua.org/manual/5.4/manual.html#6.8">io</a> and
-<a href="https://www.lua.org/manual/5.4/manual.html#6.9">os</a> libraries,
+<p>Lunatik <strong>does not</strong> support both <a href="https://www.lua.org/manual/5.5/manual.html#6.8">io</a> and
+<a href="https://www.lua.org/manual/5.5/manual.html#6.9">os</a> libraries,
 and the given identifiers from the following libraries:
-* <a href="https://www.lua.org/manual/5.4/manual.html#pdf-debug.debug">debug.debug</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.acos">math.acos</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.asin">math.asin</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.atan">math.atan</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.ceil">math.ceil</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.cos">math.cos</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.deg">math.deg</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.exp">math.exp</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.floor">math.floor</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.fmod">math.fmod</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.huge">math.huge</a>.
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.log">math.log</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.modf">math.modf</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.pi">math.pi</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.rad">math.rad</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.random">math.random</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.randomseed">math.randomseed</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.sin">math.sin</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.sqrt">math.sqrt</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.tan">math.tan</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-math.type">math.type</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-package.cpath">package.cpath</a>.</p>
+* <a href="https://www.lua.org/manual/5.5/manual.html#pdf-debug.debug">debug.debug</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.acos">math.acos</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.asin">math.asin</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.atan">math.atan</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.ceil">math.ceil</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.cos">math.cos</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.deg">math.deg</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.exp">math.exp</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.floor">math.floor</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.fmod">math.fmod</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.frexp">math.frexp</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.huge">math.huge</a>.
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.ldexp">math.ldexp</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.log">math.log</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.modf">math.modf</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.pi">math.pi</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.rad">math.rad</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.random">math.random</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.randomseed">math.randomseed</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.sin">math.sin</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.sqrt">math.sqrt</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.tan">math.tan</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-math.type">math.type</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-package.cpath">package.cpath</a>.</p>
 
 <p>Lunatik <strong>modifies</strong> the following identifiers:
-* <a href="https://www.lua.org/manual/5.4/manual.html#pdf-_VERSION">_VERSION</a>: is defined as <code>&quot;Lua 5.4-kernel&quot;</code>.
-* <a href="https://www.lua.org/manual/5.4/manual.html#pdf-collectgarbage">collectgarbage("count")</a>: returns the total memory in use by Lua in <strong>bytes</strong>, instead of <em>Kbytes</em>.
-* <a href="https://www.lua.org/manual/5.4/manual.html#pdf-package.path">package.path</a>: is defined as <code>&quot;/lib/modules/lua/?.lua;/lib/modules/lua/?/init.lua&quot;</code>.
-* <a href="https://www.lua.org/manual/5.4/manual.html#pdf-require">require</a>: only supports built-in or already linked C modules, that is, Lunatik <strong>cannot</strong> load kernel modules dynamically.</p>
+* <a href="https://www.lua.org/manual/5.5/manual.html#pdf-_VERSION">_VERSION</a>: is defined as <code>&quot;Lua 5.5-kernel&quot;</code>.
+* <a href="https://www.lua.org/manual/5.5/manual.html#pdf-collectgarbage">collectgarbage("count")</a>: returns the total memory in use by Lua in <strong>bytes</strong>, instead of <em>Kbytes</em>.
+* <a href="https://www.lua.org/manual/5.5/manual.html#pdf-package.path">package.path</a>: is defined as <code>&quot;/lib/modules/lua/?.lua;/lib/modules/lua/?/init.lua&quot;</code>.
+* <a href="https://www.lua.org/manual/5.5/manual.html#pdf-require">require</a>: only supports built-in or already linked C modules, that is, Lunatik <strong>cannot</strong> load kernel modules dynamically.</p>
 
 <h3>C API</h3>
 
 <p>Lunatik <strong>does not</strong> support
-<a href="https://www.lua.org/manual/5.4/manual.html#luaL_Stream">luaL_Stream</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#luaL_execresult">luaL_execresult</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#luaL_fileresult">luaL_fileresult</a>,
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-luaopen_io">luaopen_io</a> and
-<a href="https://www.lua.org/manual/5.4/manual.html#pdf-luaopen_os">luaopen_os</a>.</p>
+<a href="https://www.lua.org/manual/5.5/manual.html#luaL_Stream">luaL_Stream</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#luaL_execresult">luaL_execresult</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#luaL_fileresult">luaL_fileresult</a>,
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-luaopen_io">luaopen_io</a> and
+<a href="https://www.lua.org/manual/5.5/manual.html#pdf-luaopen_os">luaopen_os</a>.</p>
 
-<p>Lunatik <strong>modifies</strong> <a href="https://www.lua.org/manual/5.4/manual.html#luaL_openlibs">luaL_openlibs</a> to remove <a href="https://www.lua.org/manual/5.4/manual.html#pdf-luaopen_io">luaopen_io</a> and <a href="https://www.lua.org/manual/5.4/manual.html#pdf-luaopen_os">luaopen_os</a>.</p>
-
-<p><a name="Lunatik_C_API"></a></p>
-<h2>Lunatik C API</h2>
-
-
-<pre>
-#include &lt;lunatik.h&gt;
-</pre>
-
-
-<h4>lunatik_runtime</h4>
-
-<pre>
-<span class="keyword">int</span> <span class="function-name">lunatik_runtime</span>(lunatik_object_t **pruntime, <span class="keyword">const</span> <span class="keyword">char</span> *script, <span class="keyword">bool</span> sleep);
-</pre>
-
-<p><em>lunatik_runtime()</em> creates a new <code>runtime</code> environment then loads and runs the script
-<code>/lib/modules/lua/&lt;script&gt;.lua</code> as the entry point for this environment.
-It <em>must</em> only be called from <em>process context</em>.
-The <code>runtime</code> environment is a Lunatik object that holds
-a <a href="https://www.lua.org/manual/5.4/manual.html#lua_State">Lua state</a>.
-Lunatik objects are special
-Lua <a href="https://www.lua.org/manual/5.4/manual.html#2.1">userdata</a>
-which also hold
-a <a href="https://docs.kernel.org/locking/locktypes.html">lock type</a> and
-a <a href="https://www.kernel.org/doc/Documentation/kref.txt">reference counter</a>.
-If <code>sleep</code> is <em>true</em>, <em>lunatik_runtime()</em> will use a
-<a href="https://docs.kernel.org/locking/mutex-design.html">mutex</a>
-for locking the <code>runtime</code> environment and the
-<a href="https://www.kernel.org/doc/html/latest/core-api/memory-allocation.html">GFP_KERNEL</a>
-flag for allocating new memory later on on
-<a href="https://github.com/luainkernel/lunatik#lunatik_run">lunatik_run()</a> calls.
-Otherwise, it will use a <a href="https://docs.kernel.org/locking/locktypes.html#raw-spinlock-t-and-spinlock-t">spinlock</a> and <a href="https://www.kernel.org/doc/html/latest/core-api/memory-allocation.html">GFP_ATOMIC</a>.
-<em>lunatik_runtime()</em> opens the Lua standard libraries
-<a href="https://github.com/luainkernel/lunatik#c-api">present on Lunatik</a>.
-If successful, <em>lunatik_runtime()</em> sets the address pointed by <code>pruntime</code> and
-<a href="https://www.lua.org/manual/5.4/manual.html#lua_getextraspace">Lua's extra space</a>
-with a pointer for the new created <code>runtime</code> environment,
-sets the <em>reference counter</em> to <code>1</code> and then returns <code>0</code>.
-Otherwise, it returns <code>-ENOMEM</code>, if insufficient memory is available;
-or <code>-EINVAL</code>, if it fails to load or run the <code>script</code>.</p>
-
-<h5>Example</h5>
-
-<pre>
-<span class="comment">-- /lib/modules/lua/mydevice.lua
-</span><span class="keyword">function</span> <span class="function-name">myread</span>(len, off)
-    <span class="keyword">return</span> <span class="string">"42"</span>
-<span class="keyword">end</span>
-</pre>
-
-
-
-<pre>
-<span class="keyword">static</span> lunatik_object_t *runtime;
-
-<span class="keyword">static</span> <span class="keyword">int</span> __init <span class="function-name">mydevice_init</span>(<span class="keyword">void</span>)
-{
-    <span class="keyword">return</span> <span class="function-name">lunatik_runtime</span>(&amp;runtime, <span class="string">"mydevice"</span>, <span class="keyword">true</span>);
-}
-</pre>
-
-
-<h4>lunatik_stop</h4>
-
-<pre>
-<span class="keyword">int</span> <span class="function-name">lunatik_stop</span>(lunatik_object_t *runtime);
-</pre>
-
-<p><em>lunatik_stop()</em>
-<a href="https://www.lua.org/manual/5.4/manual.html#lua_close">closes</a>
-the
-<a href="https://www.lua.org/manual/5.4/manual.html#lua_State">Lua state</a>
-created for this <code>runtime</code> environment and decrements the
-<a href="https://www.kernel.org/doc/Documentation/kref.txt">reference counter</a>.
-Once the reference counter is decremented to zero, the
-<a href="https://docs.kernel.org/locking/locktypes.html">lock type</a>
-and the memory allocated for the <code>runtime</code> environment are released.
-If the <code>runtime</code> environment has been released, it returns <code>1</code>;
-otherwise, it returns <code>0</code>.</p>
-
-<h4>lunatik_run</h4>
-
-<pre>
-<span class="keyword">void</span> <span class="function-name">lunatik_run</span>(lunatik_object_t *runtime, &lt;inttype&gt; (*handler)(...), &lt;inttype&gt; &amp;ret, ...);
-</pre>
-
-<p><em>lunatik_run()</em> locks the <code>runtime</code> environment and calls the <code>handler</code>
-passing the associated Lua state as the first argument followed by the variadic arguments.
-If the Lua state has been closed, <code>ret</code> is set with <code>-ENXIO</code>;
-otherwise, <code>ret</code> is set with the result of <code>handler(L, ...)</code> call.
-Then, it restores the Lua stack and unlocks the <code>runtime</code> environment.
-It is defined as a macro.</p>
-
-<h5>Example</h5>
-
-<pre>
-<span class="keyword">static</span> <span class="keyword">int</span> <span class="function-name">l_read</span>(lua_State *L, <span class="keyword">char</span> *buf, size_t len, loff_t *off)
-{
-    size_t llen;
-    <span class="keyword">const</span> <span class="keyword">char</span> *lbuf;
-
-    <span class="function-name">lua_getglobal</span>(L, <span class="string">"myread"</span>);
-    <span class="function-name">lua_pushinteger</span>(L, len);
-    <span class="function-name">lua_pushinteger</span>(L, *off);
-    <span class="keyword">if</span> (<span class="function-name">lua_pcall</span>(L, <span class="number">2</span>, <span class="number">2</span>, <span class="number">0</span>) != LUA_OK) { <span class="comment">/* calls myread(len, off) */</span>
-        <span class="function-name">pr_err</span>(<span class="string">"%s\n"</span>, <span class="function-name">lua_tostring</span>(L, -<span class="number">1</span>));
-        <span class="keyword">return</span> -ECANCELED;
-    }
-
-    lbuf = <span class="function-name">lua_tolstring</span>(L, -<span class="number">2</span>, &amp;llen);
-    llen = <span class="function-name">min</span>(len, llen);
-    <span class="keyword">if</span> (<span class="function-name">copy_to_user</span>(buf, lbuf, llen) != <span class="number">0</span>)
-        <span class="keyword">return</span> -EFAULT;
-
-    *off = (loff_t)<span class="function-name">luaL_optinteger</span>(L, -<span class="number">1</span>, *off + llen);
-    <span class="keyword">return</span> (ssize_t)llen;
-}
-
-<span class="keyword">static</span> ssize_t <span class="function-name">mydevice_read</span>(<span class="keyword">struct</span> file *f, <span class="keyword">char</span> *buf, size_t len, loff_t *off)
-{
-    ssize_t ret;
-    lunatik_object_t *runtime = (lunatik_object_t *)f-&gt;private_data;
-
-    <span class="function-name">lunatik_run</span>(runtime, l_read, ret, buf, len, off);
-    <span class="keyword">return</span> ret;
-}
-</pre>
-
-
-<h4>lunatik_getobject</h4>
-
-<pre>
-<span class="keyword">void</span> <span class="function-name">lunatik_getobject</span>(lunatik_object_t *object);
-</pre>
-
-<p><em>lunatik_getobject()</em> increments the
-<a href="https://www.kernel.org/doc/Documentation/kref.txt">reference counter</a>
-of this <code>object</code> (e.g., <code>runtime</code> environment).</p>
-
-<h4>lunatik_put</h4>
-
-<pre>
-<span class="keyword">int</span> <span class="function-name">lunatik_putobject</span>(lunatik_object_t *object);
-</pre>
-
-<p><em>lunatik_putobject()</em> decrements the
-<a href="https://www.kernel.org/doc/Documentation/kref.txt">reference counter</a>
-of this <code>object</code> (e.g., <code>runtime</code> environment).
-If the <code>object</code> has been released, it returns <code>1</code>;
-otherwise, it returns <code>0</code>.</p>
-
-<h4>lunatik_toruntime</h4>
-
-<pre>
-lunatik_object_t *<span class="function-name">lunatik_toruntime</span>(lua_State *L);
-</pre>
-
-<p><em>lunatik_toruntime()</em> returns the <code>runtime</code> environment referenced by the <code>L</code>'s
-<a href="https://www.lua.org/manual/5.4/manual.html#lua_getextraspace">extra space</a>.</p>
+<p>Lunatik <strong>modifies</strong> <a href="https://www.lua.org/manual/5.5/manual.html#luaL_openlibs">luaL_openlibs</a> to remove <a href="https://www.lua.org/manual/5.5/manual.html#pdf-luaopen_io">luaopen_io</a> and <a href="https://www.lua.org/manual/5.5/manual.html#pdf-luaopen_os">luaopen_os</a>.</p>
 
 <p><a name="Lunatik_Lua_APIs"></a></p>
 <h2>Lunatik Lua APIs</h2>
 
 <p>Lua APIs are documented thanks to <a href="https://stevedonovan.github.io/ldoc/">LDoc</a>. This documentation can be read here: https://luainkernel.github.io/lunatik/, and in the source files.</p>
+
+<p><a name="Lunatik_C_API"></a></p>
+<h2>Lunatik C API</h2>
+
+<p>See <a href="doc/capi.md">this</a> document.</p>
 
 <h1>Examples</h1>
 
@@ -673,6 +524,93 @@ wants to change the DNS response from <code>192.168.10.1</code> to <code>10.1.2.
 </ol>
 
 
+<h3>gesture</h3>
+
+<p><a href="examples/gesture.lua">gesture</a>
+is a kernel script that implements a HID driver for QEMU USB Mouse (0627:0001).
+It supports gestures: swiping right locks the mouse, and swiping left unlocks it.</p>
+
+<h4>Usage</h4>
+
+<ol>
+    <li><p>You need to change the display protocal into <code>VNC</code> and enable USB mouse device in QEMU, the following configuration can help you disable PS2 mouse &amp; enable USB mouse:</p>
+
+<p> <features></p>
+<pre><code>&lt;!-- ... --&gt;
+&lt;ps2 state="off"/&gt;
+&lt;!-- ... --&gt;
+</code></pre>
+<p> </features></p></li>
+    <li><p>run the gesture script:</p>
+
+    <p> sudo make examples_install             # installs examples
+     sudo lunatik run examples/gesture false    # runs gesture
+     # In QEMU window:
+     # Drag right to lock the mouse
+     # Drag left to unlock the mouse</p></li>
+</ol>
+
+
+<h3>xiaomi</h3>
+
+<p><a href="examples/xiaomi.lua">xiaomi</a>
+is a kernel script that ports the Xiaomi Silent Mouse driver to Lua using <code>luahid</code>.
+It fixes the report descriptor for the device (<code>0x2717</code>:<code>0x5014</code>).</p>
+
+<h4>Usage</h4>
+
+<pre><code> sudo make examples_install         # installs examples
+ sudo lunatik run examples/xiaomi false     # runs xiaomi driver
+</code></pre>
+
+
+<p>Then insert the Xiaomi Silent Mouse with bluetooth mode on and it should work properly.</p>
+
+<h3>lldpd</h3>
+
+<p><a href="examples/lldpd.lua">lldpd</a> shows how to implement a simple LLDP transmitter in kernel space using Lunatik.
+It periodically emits LLDP frames on a given interface using an AF_PACKET socket.</p>
+
+<h4>Usage</h4>
+
+<pre><code> sudo make examples_install                  # installs examples
+
+ # the LLDP daemon sends frames on a single Ethernet interface
+ # you may use an existing interface, or create a virtual one for testing
+
+ # create a veth pair (the example uses veth0 by default)
+ ip link add veth0 type veth peer name veth1
+ ip link set veth0 up
+ ip link set veth1 up
+</code></pre>
+
+
+<p>sudo lunatik spawn examples/lldpd           # runs lldpd</p>
+
+<h1>verify LLDP frames are being transmitted</h1>
+<p>sudo tcpdump -i veth0 -e ether proto 0x88cc -vv</p>
+
+<h3>cpuexporter</h3>
+
+<p><a href="examples/cpuexporter.lua">cpuexporter</a> will gather CPU usage statistics and expose using <a href="https://github.com/prometheus/OpenMetrics/blob/main/specification/OpenMetrics.md#text-format">OpenMetrics text format</a> at a UNIX socket file.</p>
+
+<h4>Usage</h4>
+
+
+<pre>
+sudo make examples_install          # installs examples
+sudo lunatik spawn examples/cpuexporter # runs cpuexporter
+sudo socat - UNIX-CONNECT:/tmp/cpuexporter.sock &lt;&lt;&lt;<span class="string">""</span>
+# TYPE cpu_usage_system gauge
+<span class="function-name">cpu_usage_system</span>{cpu=<span class="string">"cpu1"</span>} <span class="number">0.0000000000000000</span> <span class="number">1764094519529162</span>
+<span class="function-name">cpu_usage_system</span>{cpu=<span class="string">"cpu0"</span>} <span class="number">0.0000000000000000</span> <span class="number">1764094519529162</span>
+# TYPE cpu_usage_idle gauge
+<span class="function-name">cpu_usage_idle</span>{cpu=<span class="string">"cpu1"</span>} <span class="number">100.0000000000000000</span> <span class="number">1764094519529162</span>
+<span class="function-name">cpu_usage_idle</span>{cpu=<span class="string">"cpu0"</span>} <span class="number">100.0000000000000000</span> <span class="number">1764094519529162</span>
+...
+</pre>
+
+
 <p><a name="References"></a></p>
 <h2>References</h2>
 
@@ -700,7 +638,7 @@ For more details, see its <a href="https://github.com/luainkernel/klibc/blob/lun
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2025-07-20 12:55:55 </i>
+<i style="float:right;">Last updated 2026-01-21 05:27:21 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

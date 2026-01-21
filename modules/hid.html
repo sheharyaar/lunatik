@@ -31,6 +31,10 @@
   <li><a href="../index.html">Index</a></li>
 </ul>
 
+<h2>Contents</h2>
+<ul>
+<li><a href="#Class_hid_driver">Class hid_driver </a></li>
+</ul>
 
 
 <h2>Modules</h2>
@@ -47,7 +51,7 @@
   <li><a href="../modules/device.html">device</a></li>
   <li><a href="../modules/fib.html">fib</a></li>
   <li><a href="../modules/fifo.html">fifo</a></li>
-  <li><a href="../modules/hid.html">hid</a></li>
+  <li><strong>hid</strong></li>
   <li><a href="../modules/linux.html">linux</a></li>
   <li><a href="../modules/lunatik.html">lunatik</a></li>
   <li><a href="../modules/lunatik.runner.html">lunatik.runner</a></li>
@@ -63,7 +67,7 @@
   <li><a href="../modules/socket.raw.html">socket.raw</a></li>
   <li><a href="../modules/socket.unix.html">socket.unix</a></li>
   <li><a href="../modules/syscall.html">syscall</a></li>
-  <li><strong>syscall.table</strong></li>
+  <li><a href="../modules/syscall.table.html">syscall.table</a></li>
   <li><a href="../modules/thread.html">thread</a></li>
   <li><a href="../modules/xdp.html">xdp</a></li>
   <li><a href="../modules/xtable.html">xtable</a></li>
@@ -77,37 +81,86 @@
 
 <div id="content">
 
-<h1>Module <code>syscall.table</code></h1>
-<p>A table mapping system call names to their kernel addresses.</p>
-<p> This module provides a pre-populated Lua table where each key
- is a system call name (string, e.g., "openat") and its corresponding
- value is the kernel address of that system call (lightuserdata).</p>
+<h1>Module <code>hid</code></h1>
+<p>High-level Lua interface to the Linux HID subsystem.</p>
+<p> This module allows registering Lua table with functions as a HID driver,
+ support for id_table is provided, which allows matching HID devices</p>
+
+
+<h2><a href="#Class_hid_driver">Class hid_driver </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#hid_driver:register">hid_driver:register (table)</a></td>
+	<td class="summary">Registers a new HID driver.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header has-description"><a name="Class_hid_driver"></a>Class hid_driver </h2>
+
+          <div class="section-description">
+          Represents a registered HID driver.
+ This is a userdata object returned by <code>hid.register()</code>. It encapsulates
+ the kernel <code>struct hid_driver</code> and associated Lunatik runtime information
+ necessary to invoke the Lua callback when a HID device is matched.
+ The <code>registered</code> field indicates whether the driver is currently registered
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "hid_driver:register"></a>
+    <strong>hid_driver:register (table)</strong>
+    </dt>
+    <dd>
+
+<p>Registers a new HID driver.
+ This function creates a new HID driver object from a Lua table and registers it with the kernel.
+ The Lua table must contain the following fields:</p>
+
+<ul>
+    <li><p><code>name</code>: The name of the driver (string).</p></li>
+    <li><p><code>id_table</code>: A table of device IDs that this driver can match against (lua_table).</p>
+    <ul>
+        <li><p>each id is a table consisting of fields:</p>
+
+        <ul>
+            <li><code>bus</code>: The bus type (integer, default: <code>HID_BUS_ANY</code>).</li>
+            <li><code>group</code>: The group type (integer, default: <code>HID_GROUP_ANY</code>).</li>
+            <li><code>vendor</code>: The vendor ID (integer, default: <code>HID_ANY_ID</code>).</li>
+            <li><code>product</code>: The product ID (integer, default: <code>HID_ANY_ID</code>).</li>
+            <li><code>driver_data</code>: Additional driver data (integer, default: <code>0</code>).</li>
+        </ul></li>
+    </ul></li>
+</ul>
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">table</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
+         The Lua table containing driver information.
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">hid_driver</span></span>
+        The registered HID driver object.
+    </ol>
+
+
     <h3>See also:</h3>
     <ul>
-         <li><a href="../modules/syscall.html#">syscall</a></li>
-         <li><a href="../modules/syscall.html#numbers">syscall.numbers</a></li>
-         <li><a href="../modules/syscall.html#address">syscall.address</a></li>
-    </ul>
-    <h3>Usage:</h3>
-    <ul>
-        <pre class="example">local syscall_addrs = require(&quot;syscall.table&quot;)
-
-if syscall_addrs.openat then
-  print(&quot;Address of &apos;openat&apos;:&quot;, syscall_addrs.openat)
-end
-
-if syscall_addrs.close then
-  print(&quot;Address of &apos;close&apos;:&quot;, syscall_addrs.close)
-end
-</pre>
     </ul>
 
 
-
-<br/>
-<br/>
-
-
+</dd>
+</dl>
 
 
 </div> <!-- id="content" -->

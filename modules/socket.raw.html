@@ -31,6 +31,10 @@
   <li><a href="../index.html">Index</a></li>
 </ul>
 
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+</ul>
 
 
 <h2>Modules</h2>
@@ -60,10 +64,10 @@
   <li><a href="../modules/signal.html">signal</a></li>
   <li><a href="../modules/socket.html">socket</a></li>
   <li><a href="../modules/socket.inet.html">socket.inet</a></li>
-  <li><a href="../modules/socket.raw.html">socket.raw</a></li>
+  <li><strong>socket.raw</strong></li>
   <li><a href="../modules/socket.unix.html">socket.unix</a></li>
   <li><a href="../modules/syscall.html">syscall</a></li>
-  <li><strong>syscall.table</strong></li>
+  <li><a href="../modules/syscall.table.html">syscall.table</a></li>
   <li><a href="../modules/thread.html">thread</a></li>
   <li><a href="../modules/xdp.html">xdp</a></li>
   <li><a href="../modules/xtable.html">xtable</a></li>
@@ -77,37 +81,71 @@
 
 <div id="content">
 
-<h1>Module <code>syscall.table</code></h1>
-<p>A table mapping system call names to their kernel addresses.</p>
-<p> This module provides a pre-populated Lua table where each key
- is a system call name (string, e.g., "openat") and its corresponding
- value is the kernel address of that system call (lightuserdata).</p>
+<h1>Module <code>socket.raw</code></h1>
+<p>RAW AF_PACKET socket operations.</p>
+<p> This module provides a higher-level abstraction over the <a href="../modules/socket.html#">socket</a> module.</p>
     <h3>See also:</h3>
     <ul>
-         <li><a href="../modules/syscall.html#">syscall</a></li>
-         <li><a href="../modules/syscall.html#numbers">syscall.numbers</a></li>
-         <li><a href="../modules/syscall.html#address">syscall.address</a></li>
+         <a href="../modules/socket.html#">socket</a>
     </ul>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#bind">bind (proto, ifindex)</a></td>
+	<td class="summary">Creates and binds a raw packet socket for receiving frames.</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "bind"></a>
+    <strong>bind (proto, ifindex)</strong>
+    </dt>
+    <dd>
+    Creates and binds a raw packet socket for receiving frames.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">proto</span>
+         (number) EtherType (defaults to ETH<em>P</em>ALL).
+        </li>
+        <li><span class="parameter">ifindex</span>
+         (number) [optional] Interface index (defaults to listen all interfaces).
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        A new raw packet socket bound for proto and ifindex.
+    </ol>
+
+    <h3>Raises:</h3>
+    Error if socket.new() or socket.bind() fail.
+
+    <h3>See also:</h3>
+    <ul>
+         <li><a href="../modules/socket.html#new">socket.new</a></li>
+         <li><a href="../modules/socket.html#bind">socket.bind</a></li>
+    </ul>
+
     <h3>Usage:</h3>
     <ul>
-        <pre class="example">local syscall_addrs = require(&quot;syscall.table&quot;)
-
-if syscall_addrs.openat then
-  print(&quot;Address of &apos;openat&apos;:&quot;, syscall_addrs.openat)
-end
-
-if syscall_addrs.close then
-  print(&quot;Address of &apos;close&apos;:&quot;, syscall_addrs.close)
-end
-</pre>
+        <pre class="example"><span class="keyword">local</span> rx &lt;close&gt; = raw.<span class="function-name">bind</span>(<span class="number">0x0003</span>)
+<span class="keyword">local</span> tx &lt;close&gt; = raw.<span class="function-name">bind</span>(<span class="number">0x88cc</span>, ifindex)</pre>
     </ul>
 
-
-
-<br/>
-<br/>
-
-
+</dd>
+</dl>
 
 
 </div> <!-- id="content" -->
