@@ -8,28 +8,31 @@
 
 ### lunatik\_class\_t
 ```C
+typedef void (*lunatik_release_t)(void *);
+
 typedef struct lunatik_class_s {
-	const char     *name;
-	const luaL_Reg *methods;
-	void          (*release)(void *);
-	lunatik_opt_t   opt;
+	const char        *name;
+	const luaL_Reg    *methods;
+	lunatik_release_t  release;
+	lunatik_opt_t      opt;
 } lunatik_class_t;
 ```
 Describes a Lunatik object class.
 
-- `name`: class name; used as the argument to `require` and to identify the class.
+- `name`: the class's type name, quoted by type errors and `__name`; `lunatik_require` also
+  registers the library under it when an object of the class enters another state, so a script's
+  own `require` of the library may open it a second time, which keeps the classes already opened.
 - `methods`: `NULL`-terminated array of Lua methods registered in the metatable.
 - `release`: called when the object's reference counter reaches zero; may be `NULL`.
 - `opt`: bitmask of `LUNATIK_OPT_*` flags controlling class behaviour. Flags are inherited by
   every instance via `object->opt = opt | class->opt` (see `lunatik_newobject`). Flags differ
   in whether they act as **constraints** or **capabilities**:
-  - `LUNATIK_OPT_SOFTIRQ` *(constraint)*: all instances use a spinlock with bottom-half disabling
-    (`spin_lock_bh`) and `GFP_ATOMIC`; absence means mutex and `GFP_KERNEL`. Use for classes whose
-    handlers fire in softirq context (netfilter, XDP). Because this flag is always inherited, a
-    SOFTIRQ class can never produce a non-SOFTIRQ instance.
-  - `LUNATIK_OPT_HARDIRQ` *(constraint)*: like `SOFTIRQ` but uses `spin_lock_irqsave`, which
-    disables hardware interrupts. Required for classes whose handlers fire in hardirq context
-    (e.g. kprobes).
+  - `LUNATIK_OPT_SOFTIRQ` *(constraint)*: all instances use `GFP_ATOMIC` and a spinlock:
+    `spin_lock_bh`, or `spin_lock_irqsave` when interrupts are already off; absence means mutex and
+    `GFP_KERNEL`. Use for classes whose handlers fire in softirq context (netfilter, XDP). Because
+    this flag is always inherited, a SOFTIRQ class can never produce a non-SOFTIRQ instance.
+  - `LUNATIK_OPT_HARDIRQ` *(constraint)*: like `SOFTIRQ`, but always `spin_lock_irqsave`, whatever
+    the interrupt state. Required for classes whose handlers fire in hardirq context (e.g. kprobes).
   - `LUNATIK_OPT_MONITOR` *(capability)*: the class supports a monitored metatable that wraps Lua
     method calls with the object lock, enabling safe concurrent access from multiple runtimes.
     Inherited by default but cancelled when an instance is created with `LUNATIK_OPT_SINGLE`.
@@ -105,6 +108,17 @@ and the memory allocated for the `runtime` environment are released.
 If the `runtime` environment has been released, it returns `1`;
 otherwise, it returns `0`.
 
+### lunatik\_copyobjects
+```C
+int lunatik_copyobjects(lua_State *Lto, lua_State *Lfrom, int ixfrom, int nobjects);
+```
+Clones onto `Lto`, in order, the `nobjects` Lunatik objects `Lfrom` holds from `ixfrom`, which may
+be negative to count from `Lfrom`'s top. It carries objects and nothing else: a value that is not a
+Lunatik object fails it with `invalid object`, an object marked `SINGLE` with
+`cannot share SINGLE object`. On failure it returns the status of the
+[protected call](https://www.lua.org/manual/5.5/manual.html#lua_pcall) and leaves the message on
+`Lto`, which the caller pops; on success it returns `LUA_OK`.
+
 ### lunatik\_run
 ```C
 void lunatik_run(lunatik_object_t *runtime, <inttype> (*handler)(...), <inttype> &ret, ...);
@@ -114,6 +128,9 @@ passing the associated Lua state as the first argument followed by the variadic 
 If the Lua state has been closed, `ret` is set with `-ENXIO`;
 otherwise, `ret` is set with the result of `handler(L, ...)` call.
 Then, it restores the Lua stack and unlocks the `runtime` environment.
+A `percpu` object, which the caller keeps referenced across the call, is resolved first
+to the runtime of the CPU the caller runs on, and the caller stays on that CPU until the
+call returns.
 It is defined as a macro.
 
 #### Example
@@ -182,6 +199,45 @@ Returns the runtime associated with `L` and raises a Lua error if its context do
 `softirq` runtime, a HARDIRQ class in a `hardirq` runtime, and a process-context class in a
 process runtime. Typically called from `lunatik_new*` functions to enforce that a class is
 only instantiated in a compatible runtime.
+
+### lunatik\_checkarmed
+```C
+void lunatik_checkarmed(lua_State *L);
+```
+Raises a Lua error, `"not allowed after module load"`, when `L` belongs to an interrupt-context
+runtime that has finished loading. An IRQ runtime is process context only while its script body
+runs, so a call that may sleep is allowed there and must be refused afterwards, when the runtime
+lock is a spinlock: from a hook or a handler, and from the `resume` of such a runtime. Use it in
+an entry point that reaches a sleeping kernel call, where `lunatik_checkruntime` answers the
+different question of whether the class matches the runtime at all.
+
+### lunatik\_percpudata
+```C
+lunatik_object_t *lunatik_percpudata(lua_State *L, const lunatik_class_t *class, size_t size);
+```
+Returns the object of `class` a `percpu` object holds for its runtimes: the first runtime to ask
+creates it, as `lunatik_createobject(class, size, LUNATIK_OPT_NONE)` does, with its private zeroed;
+the following ones get the same object, so every runtime sees one. The `percpu` object owns it:
+`percpu:stop()` closes it (`lunatik_closeprivate`, which runs the class's `release` in process
+context) before closing the runtimes, then drops it, and an object with such data outstanding is
+released by `stop`, never by collection. A registration a script makes once for all its runtimes,
+a netfilter hook, say, lives in the private of such an object, with the class's `release`
+unregistering it. Only the script body may ask, while the runtime loads; it raises a Lua error
+afterwards. Returns `NULL` on a plain runtime, which has no runtimes to share with;
+`lunatik_getpercpu(L)` tells the two apart, returning the `percpu` object owning the runtime `L`,
+or `NULL`.
+
+### LUNATIK\_PERCPUDATA
+```C
+#define LUNATIK_PERCPUDATA(prefix, cname, T, free)
+```
+Defines `static const lunatik_class_t prefix_class`, named `cname`, for the data a `percpu` object
+holds for the registrations its runtimes share, as [`lunatik_percpudata`](#lunatik_percpudata)
+creates it: a private that is a `struct hlist_head` of `T` entries linked through their
+`struct hlist_node node`, whose `release`, `prefix_release`, unlinks every entry and passes it to
+`free`. For example,
+`LUNATIK_PERCPUDATA(luaprobe_kprobes, "probe.kprobes", luaprobe_t, luaprobe_disarm)`
+defines `luaprobe_kprobes_class`.
 
 ---
 
@@ -270,21 +326,34 @@ lunatik_object_t *lunatik_toobject(lua_State *L, int i);
 Returns the Lunatik object at stack position `i` without type checking. Returns `NULL` if
 the value is not a userdata. Defined as a macro.
 
-### LUNATIK\_OBJECTCHECKER
-```C
-#define LUNATIK_OBJECTCHECKER(checker, T)
-```
-Generates a `static inline` function `T checker(lua_State *L, int ix)` that returns
-`object->private` cast to `T`. Performs a full object check; raises a Lua error if the
-value at `ix` is not a valid Lunatik object.
-
 ### LUNATIK\_PRIVATECHECKER
 ```C
-#define LUNATIK_PRIVATECHECKER(checker, T, ...)
+#define LUNATIK_PRIVATECHECKER(checker, T, cls, ...)
+#define LUNATIK_PRIVATECHECKERS(checker, T, tname, ...)
 ```
-Like `LUNATIK_OBJECTCHECKER`, but also guards against use-after-free by checking that
-`private != NULL` before returning. The optional `...` may include additional validation
-statements (e.g., checking a secondary field) that are executed before `return private`.
+Generates a `static inline` function `T checker(lua_State *L, int ix)` that returns
+`object->private` cast to `T`, after proving three things about the value at `ix`, each with a
+Lua error: it is a Lunatik object (`lunatik_checkobject`), it is of the class `cls`, whose
+`name` the type error quotes, and its private is set, which rules out a closed object. The
+second form is for a family of classes sharing one checker: `...` lists the classes it accepts,
+and `tname` is the name the type error quotes. The first form's optional `...` are further
+validation statements, run with `L`, `ix`, `object` and `private` in scope, before `return
+private`.
+
+### lunatik\_argcheckclass
+```C
+void lunatik_argcheckclass(lua_State *L, int ix, lunatik_object_t *object, const lunatik_class_t *cls);
+```
+Raises a type error naming `cls->name` unless `object`, the Lunatik object at `ix`, is of that
+class. Defined as a macro.
+
+### lunatik\_checkobjectclass
+```C
+lunatik_object_t *lunatik_checkobjectclass(lua_State *L, int ix, const lunatik_class_t *cls);
+```
+Returns the Lunatik object at `ix` after proving it is one and is of the class `cls`, raising a
+Lua error otherwise: the checkers above, for a method that needs the object itself, not only its
+private.
 
 ---
 
@@ -325,6 +394,15 @@ int lunatik_getregistry(lua_State *L, void *key);
 ```
 Pushes the value stored in `LUA_REGISTRYINDEX` at `key` onto the Lua stack and returns
 its type. Defined as a macro wrapping `lua_rawgetp`.
+
+### lunatik\_getregistryobject
+```C
+lunatik_object_t *lunatik_getregistryobject(lua_State *L, void *key);
+```
+Pushes the value stored in `LUA_REGISTRYINDEX` at `key` and returns it as a Lunatik object, or
+`NULL` when there is none or it is no Lunatik object: a hook that reaches for the object it
+registered (an `skb`, a handle) reads it through this rather than through `lunatik_toobject`,
+which does not check.
 
 ### lunatik\_attach
 ```C
@@ -389,7 +467,8 @@ Falls back to `opt` if the field is absent or nil.
 void lunatik_setstring(lua_State *L, int idx, hook, field, maxlen);
 ```
 Reads a required string field named `field` from the table at `idx` into `hook->field`,
-truncated to `maxlen` bytes. Raises a Lua error if the field is missing or not a string.
+a buffer of `maxlen` bytes holding the string and its terminator. Raises a Lua error if
+the field is missing, is not a string, or is too long.
 
 ---
 
@@ -506,13 +585,18 @@ Allocates `size` bytes using the Lua allocator. Returns `NULL` on failure.
 
 ### lunatik\_realloc
 ```C
-void *lunatik_realloc(lua_State *L, void *ptr, size_t size);
+void *lunatik_realloc(lua_State *L, void *ptr, size_t osize, size_t nsize);
 ```
-Reallocates `ptr` to `size` bytes using the Lua allocator.
+Reallocates `ptr`, currently `osize` bytes long, to `nsize` bytes using the Lua
+allocator. Returns `NULL` when `nsize` is zero, which frees `ptr`, and when the
+allocation fails, leaving `ptr` allocated; the exception is a shrink whose
+allocation fails, which returns `ptr` itself, still `osize` bytes long. When
+`ptr` is `NULL`, `osize` is not read as a size: either `0` or a type tag is
+accepted.
 
 ### lunatik\_free
 ```C
 void lunatik_free(void *ptr);
 ```
-Frees memory allocated by `lunatik_malloc` or `lunatik_realloc`. Equivalent to `kfree`.
+Frees memory allocated by `lunatik_malloc` or `lunatik_realloc`. Equivalent to `kvfree`.
 

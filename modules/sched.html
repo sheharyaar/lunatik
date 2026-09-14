@@ -33,7 +33,8 @@
 
 <h2>Contents</h2>
 <ul>
-<li><a href="#Class_thread">Class thread </a></li>
+<li><a href="#Class_sched_ctx">Class sched_ctx </a></li>
+<li><a href="#sched">sched</a></li>
 </ul>
 
 
@@ -98,7 +99,7 @@
   <li><a href="../modules/notifier.html">notifier</a></li>
   <li><a href="../modules/probe.html">probe</a></li>
   <li><a href="../modules/rcu.html">rcu</a></li>
-  <li><a href="../modules/sched.html">sched</a></li>
+  <li><strong>sched</strong></li>
   <li><a href="../modules/set.html">set</a></li>
   <li><a href="../modules/signal.html">signal</a></li>
   <li><a href="../modules/skb.html">skb</a></li>
@@ -111,7 +112,7 @@
   <li><a href="../modules/syscall.table.html">syscall.table</a></li>
   <li><a href="../modules/task.html">task</a></li>
   <li><a href="../modules/tc.html">tc</a></li>
-  <li><strong>thread</strong></li>
+  <li><a href="../modules/thread.html">thread</a></li>
   <li><a href="../modules/xdp.html">xdp</a></li>
 </ul>
 <h2>Classes</h2>
@@ -133,34 +134,41 @@
 
 <div id="content">
 
-<h1>Module <code>thread</code></h1>
-<p>Kernel thread primitives.</p>
-<p>
+<h1>Module <code>sched</code></h1>
+<p>Linux Extensible Scheduler (sched_ext) integration.</p>
+<p> This library allows Lua scripts to interact with the kernel's sched<em>ext subsystem.
+ It enables sched</em>ext/eBPF programs to call Lua functions for task scheduling,
+ providing a flexible way to implement custom scheduling logic in Lua.</p>
 
-</p>
+<p> The primary mechanism involves an sched_ext program calling the <code>bpf_luasched_run</code>
+ kfunc, which in turn invokes a Lua callback function previously registered
+ using <code>sched.attach()</code>.</p>
 
 
-<h2><a href="#Class_thread">Class thread </a></h2>
+<h2><a href="#Class_sched_ctx">Class sched_ctx </a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#thread:current">thread:current ()</a></td>
-	<td class="summary">Gets a thread object representing the current kernel task.</td>
+	<td class="name" nowrap><a href="#sched_ctx:dsq">sched_ctx:dsq (dsq)</a></td>
+	<td class="summary">Sets the sched_ext dispatch queue for this task.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#thread:run">thread:run (runtime, name, ...)</a></td>
-	<td class="summary">Creates and starts a new kernel thread to run a Lua task.</td>
+	<td class="name" nowrap><a href="#sched_ctx:slice">sched_ctx:slice (slice)</a></td>
+	<td class="summary">Sets the sched_ext slice in nanoseconds for this task.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#thread:shouldstop">thread:shouldstop ()</a></td>
-	<td class="summary">Checks if the current thread has been signaled to stop.</td>
+	<td class="name" nowrap><a href="#sched_ctx:task">sched_ctx:task ()</a></td>
+	<td class="summary">Returns the object for the current task.</td>
+	</tr>
+</table>
+<h2><a href="#sched">sched</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#attach">attach (callback)</a></td>
+	<td class="summary">Registers a Lua callback function to be invoked by a sched_ext eBPF program.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#thread:stop">thread:stop (self)</a></td>
-	<td class="summary">Stops a running kernel thread.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#thread:task">thread:task (self)</a></td>
-	<td class="summary">Returns a task object for the kernel task associated with the thread.</td>
+	<td class="name" nowrap><a href="#detach">detach ()</a></td>
+	<td class="summary">Unregisters the Lua callback function associated with the current Lunatik runtime.</td>
 	</tr>
 </table>
 
@@ -168,128 +176,170 @@
 <br/>
 
 
-    <h2 class="section-header has-description"><a name="Class_thread"></a>Class thread </h2>
+    <h2 class="section-header has-description"><a name="Class_sched_ctx"></a>Class sched_ctx </h2>
 
           <div class="section-description">
-          Represents a kernel thread object.
+          Sched callback context, valid only while the callback runs.
+ It is handed to the callback registered with <a href="../modules/sched.html#attach">sched.attach</a>; its methods raise
+ once the callback returns.
           </div>
     <dl class="function">
     <dt>
-    <a name = "thread:current"></a>
-    <strong>thread:current ()</strong>
+    <a name = "sched_ctx:dsq"></a>
+    <strong>sched_ctx:dsq (dsq)</strong>
     </dt>
     <dd>
-    Gets a thread object representing the current kernel task.
- If the current task was not created by <code>thread.run()</code>, the returned
- object will not have an associated Lunatik runtime.
-
-
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><a class="type" href="../modules/thread.html#thread">thread</a></span>
-        A thread object for the current task.
-    </ol>
-
-
-
-    <h3>Usage:</h3>
-    <ul>
-        <pre class="example"><span class="keyword">local</span> t = thread.<span class="function-name">current</span>()</pre>
-    </ul>
-
-</dd>
-    <dt>
-    <a name = "thread:run"></a>
-    <strong>thread:run (runtime, name, ...)</strong>
-    </dt>
-    <dd>
-    Creates and starts a new kernel thread to run a Lua task.
- The runtime must be sleepable; the script it loaded must return a function,
- which becomes the thread body, called with the objects given here.
+    Sets the sched_ext dispatch queue for this task.
 
 
     <h3>Parameters:</h3>
     <ul>
-        <li><span class="parameter">runtime</span>
-            <span class="types"><span class="type">runtime</span></span>
-         A sleepable Lunatik runtime whose script returns a function.
+        <li><span class="parameter">dsq</span>
+            <span class="types"><span class="type">integer</span></span>
+         dispatch queue to set for the task
         </li>
-        <li><span class="parameter">name</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>
-         A descriptive name for the kernel thread.
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "sched_ctx:slice"></a>
+    <strong>sched_ctx:slice (slice)</strong>
+    </dt>
+    <dd>
+    Sets the sched_ext slice in nanoseconds for this task.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">slice</span>
+            <span class="types"><span class="type">integer</span></span>
+         slice in ns to set for the task
         </li>
-        <li><span class="parameter">...</span>
-         Lunatik objects passed to the thread body.
+    </ul>
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "sched_ctx:task"></a>
+    <strong>sched_ctx:task ()</strong>
+    </dt>
+    <dd>
+    Returns the object for the current task.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/sched.html#sched_ctx:task">task</a></span>
+
+
+
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="sched"></a>sched</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "attach"></a>
+    <strong>attach (callback)</strong>
+    </dt>
+    <dd>
+
+<p>Registers a Lua callback function to be invoked by a sched<em>ext eBPF program.
+ When a sched</em>ext program calls the <code>bpf_luasched_run</code> kfunc, Lunatik will execute
+ the registered Lua <code>callback</code> associated with the current Lunatik runtime.
+ The runtime invoking this function must be non-sleepable.</p>
+
+<p> The <code>bpf_luasched_run</code> kfunc is called from an eBPF program with the following signature:
+ <code>int bpf_luasched_run(const char *key, size_t key__sz, struct task_struct *task_struct, struct task_class *cls)</code></p>
+
+<ul>
+    <li><code>key</code>: A string identifying the Lunatik runtime (e.g., the script name like "examples/workload/workload").
+    This key is used to look up the runtime in Lunatik's internal table of active runtimes.</li>
+    <li><code>key_sz</code>: Length of the key string (including the null terminator).</li>
+    <li><code>task_struct</code>: The task context (<code>struct task_struct *</code>).</li>
+    <li><code>cls</code>: The scheduling decision (dsq and slice).</li>
+</ul>
+
+
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">callback</span>
+            <span class="types"><span class="type">function</span></span>
+         Lua function to call. It receives one argument:</p>
+
+<p>   <code>ctx</code>: An <a href="../modules/sched.html#sched_ctx">sched_ctx</a> context object used to inspect the task
+   and control the sched_ext dispatch queue via <a href="../modules/sched.html#sched_ctx:dsq">sched_ctx:dsq</a>.</p>
+
+<p>   The callback need not return a value. If it sets no dispatch queue, <code>bpf_luasched_run</code>
+   sets SCX<em>DSQ</em>GLOBAL and the verdict is left to the eBPF program.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-           <span class="types"><a class="type" href="../modules/thread.html#thread">thread</a></span>
-        A new thread object.
+           <span class="types"><span class="type">nil</span></span>
+
+
+
     </ol>
 
     <h3>Raises:</h3>
-     Error if called during module load, if the runtime is not sleepable or has been stopped,
-   if a value passed to the body is not a Lunatik object or is a <code>SINGLE</code> one, if the arguments
-   couldn't be passed, or if thread creation fails.
+    Error if the current runtime is sleepable or if internal setup fails.
 
     <h3>See also:</h3>
     <ul>
-         <a href="../modules/lunatik.html#runtime">lunatik.runtime</a>
-    </ul>
-
-
-</dd>
-    <dt>
-    <a name = "thread:shouldstop"></a>
-    <strong>thread:shouldstop ()</strong>
-    </dt>
-    <dd>
-    Checks if the current thread has been signaled to stop.
-
-
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><span class="type">boolean</span></span>
-        <code>true</code> if the thread should stop, <code>false</code> otherwise.
-    </ol>
-
-
-    <h3>See also:</h3>
-    <ul>
-         <a href="../modules/thread.html#thread:stop">stop</a>
+         <a href="../modules/task.html#">task</a>
     </ul>
 
     <h3>Usage:</h3>
     <ul>
-        <pre class="example"><span class="keyword">while</span> <span class="keyword">not</span> thread.<span class="function-name">shouldstop</span>() <span class="keyword">do</span>
-  linux.<span class="function-name">schedule</span>(<span class="number">100</span>)
-<span class="keyword">end</span></pre>
+        <pre class="example"><span class="comment">-- Lua script (e.g., "my_sched_handler.lua" which is run via <code>lunatik run my_sched_handler.lua hardirq</code>)
+</span><span class="keyword">local</span> sched = <span class="global">require</span>(<span class="string">"sched"</span>)
+<span class="keyword">local</span> scx = <span class="global">require</span>(<span class="string">"linux.scx"</span>)
+
+<span class="keyword">local</span> <span class="keyword">function</span> <span class="function-name">my_scheduler</span>(ctx)
+  <span class="keyword">local</span> task = ctx:<span class="function-name">task</span>()
+  <span class="keyword">if</span> task:<span class="function-name">comm</span>() == <span class="string">"bash"</span> <span class="keyword">then</span>
+    ctx:<span class="function-name">dsq</span>(scx.DSQ_LOCAL)
+    ctx:<span class="function-name">slice</span>(scx.SLICE_DFL)
+  <span class="keyword">end</span>
+  <span class="keyword">return</span>
+<span class="keyword">end</span>
+sched.<span class="function-name">attach</span>(my_scheduler)
+
+<span class="comment">-- In eBPF C code, to call the above Lua function:
+</span><span class="comment">-- char rt_key[] = "my_sched_handler.lua"; // Key matches the script name
+</span><span class="comment">-- int ret = bpf_luasched_run(rt_key, sizeof(rt_key), p, cls);</span></pre>
     </ul>
 
 </dd>
     <dt>
-    <a name = "thread:stop"></a>
-    <strong>thread:stop (self)</strong>
+    <a name = "detach"></a>
+    <strong>detach ()</strong>
     </dt>
     <dd>
-    Stops a running kernel thread.
- Signals the thread to stop and waits for it to exit.
+    Unregisters the Lua callback function associated with the current Lunatik runtime.
+ After calling this, <code>bpf_luasched_run</code> calls targeting this runtime will no longer
+ invoke a Lua function (they will likely return an error or default action).
 
 
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">self</span>
-            <span class="types"><a class="type" href="../modules/thread.html#thread">thread</a></span>
-         thread object to stop.
-        </li>
-    </ul>
 
     <h3>Returns:</h3>
     <ol>
@@ -304,42 +354,7 @@
 
     <h3>Usage:</h3>
     <ul>
-        <pre class="example">my_thread:<span class="function-name">stop</span>()</pre>
-    </ul>
-
-</dd>
-    <dt>
-    <a name = "thread:task"></a>
-    <strong>thread:task (self)</strong>
-    </dt>
-    <dd>
-    Returns a task object for the kernel task associated with the thread.
- Once the thread has exited the object has no task and its methods raise.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">self</span>
-            <span class="types"><a class="type" href="../modules/thread.html#thread">thread</a></span>
-         thread object.
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><a class="type" href="../modules/thread.html#thread:task">task</a></span>
-
-
-
-    </ol>
-
-
-
-    <h3>Usage:</h3>
-    <ul>
-        <pre class="example"><span class="keyword">local</span> t = my_thread:<span class="function-name">task</span>()
-<span class="global">print</span>(t:<span class="function-name">pid</span>(), t:<span class="function-name">comm</span>())</pre>
+        <pre class="example">sched.<span class="function-name">detach</span>()</pre>
     </ul>
 
 </dd>

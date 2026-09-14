@@ -65,6 +65,7 @@
   <li><a href="../modules/lighten.html">lighten</a></li>
   <li><a href="../modules/linux.html">linux</a></li>
   <li><a href="../modules/linux.bpf.html">linux.bpf</a></li>
+  <li><a href="../modules/linux.dropreason.html">linux.dropreason</a></li>
   <li><a href="../modules/linux.eth.html">linux.eth</a></li>
   <li><a href="../modules/linux.genl.html">linux.genl</a></li>
   <li><a href="../modules/linux.kbd.html">linux.kbd</a></li>
@@ -74,11 +75,13 @@
   <li><a href="../modules/linux.nl80211.html">linux.nl80211</a></li>
   <li><a href="../modules/linux.notify.html">linux.notify</a></li>
   <li><a href="../modules/linux.rtnetlink.html">linux.rtnetlink</a></li>
+  <li><a href="../modules/linux.scx.html">linux.scx</a></li>
   <li><a href="../modules/linux.signal.html">linux.signal</a></li>
   <li><a href="../modules/linux.socket.html">linux.socket</a></li>
   <li><a href="../modules/linux.stat.html">linux.stat</a></li>
   <li><a href="../modules/linux.syscall.html">linux.syscall</a></li>
   <li><a href="../modules/linux.task.html">linux.task</a></li>
+  <li><a href="../modules/linux.tc.html">linux.tc</a></li>
   <li><a href="../modules/linux.vt.html">linux.vt</a></li>
   <li><a href="../modules/linux.xdp.html">linux.xdp</a></li>
   <li><a href="../modules/lunatik.html">lunatik</a></li>
@@ -106,6 +109,7 @@
   <li><a href="../modules/notifier.html">notifier</a></li>
   <li><a href="../modules/probe.html">probe</a></li>
   <li><a href="../modules/rcu.html">rcu</a></li>
+  <li><a href="../modules/sched.html">sched</a></li>
   <li><a href="../modules/set.html">set</a></li>
   <li><a href="../modules/signal.html">signal</a></li>
   <li><a href="../modules/skb.html">skb</a></li>
@@ -116,6 +120,8 @@
   <li><a href="../modules/struct.html">struct</a></li>
   <li><a href="../modules/syscall.html">syscall</a></li>
   <li><a href="../modules/syscall.table.html">syscall.table</a></li>
+  <li><a href="../modules/task.html">task</a></li>
+  <li><a href="../modules/tc.html">tc</a></li>
   <li><a href="../modules/thread.html">thread</a></li>
   <li><a href="../modules/xdp.html">xdp</a></li>
 </ul>
@@ -127,6 +133,7 @@
   <li><a href="../classes/crypto_rng.html">crypto_rng</a></li>
   <li><a href="../classes/crypto_shash.html">crypto_shash</a></li>
   <li><a href="../classes/crypto_skcipher.html">crypto_skcipher</a></li>
+  <li><a href="../classes/skb.attr.html">skb.attr</a></li>
 </ul>
 
 </div>
@@ -248,11 +255,35 @@ usage: lunatik [<span class="global">load</span>|unload|reload|status|test|list]
     <li><code>status</code>: show which Lunatik kernel modules are currently loaded</li>
     <li><code>test [suite]</code>: run installed test suites (see <a href="#testing">Testing</a>)</li>
     <li><code>list</code>: show which runtime environments are currently running</li>
-    <li><code>run [softirq|hardirq]</code>: create a new runtime environment to run the script <code>/lib/modules/lua/&lt;script&gt;.lua</code>; pass <code>softirq</code> for hooks that fire in softirq context (netfilter, XDP), or <code>hardirq</code> for hooks that fire in hardirq context (kprobes); optionally pass <code>percpu</code> to create one runtime instance per CPU id, for scripts dispatched by the eBPF bindings, which resolve to the instance of the CPU the hook runs on. The script runs once per instance and can read its id with <code>lunatik.cpu()</code>; netfilter hooks and constructors whose registration is global fail at load in a percpu instance</li>
+    <li><code>run [softirq|hardirq]</code>: create a new runtime environment to run the script <code>/lib/modules/lua/&lt;script&gt;.lua</code>; pass <code>softirq</code> for hooks that fire in softirq context (netfilter, XDP), or <code>hardirq</code> for hooks that fire in hardirq context (kprobes); optionally pass <code>percpu</code> to create one runtime per CPU id, dispatched to the runtime of the CPU the callback runs on. The script runs once per runtime and can read its id with <code>lunatik.cpu()</code>; the runtimes share a netfilter hook and a kprobe, and constructors whose registration is global fail at load in a percpu runtime. A runtime is a CPU, not a connection: see <a href="#percpu-scripts">percpu scripts</a></li>
     <li><code>spawn</code>: create a new runtime environment and spawn a thread to run the script <code>/lib/modules/lua/&lt;script&gt;.lua</code></li>
     <li><code>stop</code>: stop the runtime environment created to run the script <code>&lt;script&gt;</code></li>
     <li><code>default</code>: start a <em>REPL (Read–Eval–Print Loop)</em></li>
 </ul>
+
+<h3>percpu scripts</h3>
+
+<p><code>lunatik run &lt;script&gt; [softirq|hardirq] percpu</code> creates one runtime per CPU id and
+dispatches a callback to the runtime of the CPU it fires on. The runtimes share the
+registrations a script makes once for all of them, a netfilter hook and a kprobe, and each reads
+its own id with <code>lunatik.cpu()</code>.</p>
+
+<p>A runtime is a CPU, not a connection. A netfilter hook runs in the packet's own processing path
+(<code>NF_HOOK</code> from <code>ip_rcv</code>, <code>ip_output</code> and their peers), so the runtime is whichever CPU that path
+is on, and the packets of one connection reach several. Over loopback and veth the transmit side
+queues the packet to its own CPU's backlog (<code>__netif_rx</code> from <code>loopback_xmit</code> and
+<code>veth_forward_skb</code>), which the receive softirq drains on that CPU. On a NIC it is the CPU the
+queue's interrupt is bound to; with RPS, the one the queue's map picks from the flow hash, stable
+while the map is; with RFS, the one where the flow's last <code>recvmsg</code> ran, which follows a reader
+that migrates. An outbound hook reached from a <code>sendmsg</code> runs on the sending process's CPU, but
+the same hook number also fires from the receive softirq, forwarding a packet or sending a RST for
+one, and from the timer softirq on a retransmission, where it is that softirq's CPU. A kprobe
+reaches the runtime of the CPU the probed call ran on.</p>
+
+<p>State that must see a whole flow therefore belongs in something the runtimes share, a table
+published in <a href="../modules/lunatik.html#_ENV">lunatik._ENV</a> or the conntrack mark; the runtime holds what is per-CPU, a counter or
+a cache. An <code>rcu.table()</code> the script body creates is not shared: the body runs once per runtime, so
+each gets its own.</p>
 
 <h3>Testing</h3>
 
@@ -262,9 +293,10 @@ usage: lunatik [<span class="global">load</span>|unload|reload|status|test|list]
 <pre>
 sudo make install
 sudo lunatik test           # run all suites
-sudo lunatik test thread    # run a specific <span class="function-name">suite</span> (bpf, crypto, <span class="global">io</span>, monitor,
-                            # netlink, notifier, probe, rcu, runtime, set, skb,
-                            # socket, struct, thread, xdp)
+sudo lunatik test thread    # run a specific <span class="function-name">suite</span> (bpf, crypto, data, fifo,
+                            # hid, <span class="global">io</span>, linux, monitor, netlink, notifier, probe,
+                            # rcu, runtime, set, skb, socket, struct, task, tc,
+                            # thread, xdp)
 </pre>
 
 
@@ -319,7 +351,9 @@ On failure, error messages always read <code>&quot;I/O error&quot;</code> regard
 <p>| Module | Description |
 |--------|-------------|
 | <a href="../modules/linux.html#">linux</a> | Kernel utilities: <code>schedule</code>, <code>time</code>, <code>random</code>, <code>stat</code> flags |
+| <a href="../modules/task.html#">task</a> | Linux task inspection: <code>comm</code>, <code>pid</code>, <code>tgid</code>, <code>prio</code>, <a href="../modules/cpu.html#">cpu</a>, <code>current</code> |
 | <a href="../modules/thread.html#">thread</a> | Kernel threads: spawn, stop, <code>shouldstop</code> |
+| <a href="../modules/cpu.html#">cpu</a> | CPU counts and iteration: <code>num_online</code>, <code>stats</code>, <code>foreach_online</code> |
 | <a href="../modules/socket.html#">socket</a> | Kernel sockets: TCP, UDP, AF_PACKET, AF_UNIX |
 | <a href="../modules/netlink.html#">netlink</a> | Netlink namespace: rtnetlink and generic-netlink sessions, softirq-safe channel |
 | <a href="../modules/data.html#">data</a> | Raw memory buffer for binary data read/write |
@@ -329,11 +363,15 @@ On failure, error messages always read <code>&quot;I/O error&quot;</code> regard
 | <a href="../modules/netfilter.html#">netfilter</a> | Netfilter hooks: register packet processing callbacks |
 | <a href="../modules/skb.html#">skb</a> | Socket buffer (<code>sk_buff</code>): inspect and modify packets |
 | <a href="../modules/xdp.html#">xdp</a> | XDP (eXpress Data Path) hooks |
+| <a href="../modules/tc.html#">tc</a> | TC (Traffic Control) hooks |
+| <a href="../modules/sched.html#">sched</a> | sched_ext (extensible scheduler) hooks: dispatch queue and slice from Lua |
 | <a href="../modules/bpf.html#">bpf</a> | Pinned eBPF map access (hash, array, LRU hash, queue, stack) |
 | <a href="../modules/crypto.html#">crypto</a> | Kernel crypto API: hash, cipher, AEAD, RNG, compression |
 | <a href="../modules/hid.html#">hid</a> | HID device drivers |
 | <a href="../modules/probe.html#">probe</a> | Kernel probes (kprobe / tracepoint) |
+| <a href="../modules/syscall.html#">syscall</a> | System call addresses by number, for <a href="../modules/probe.html#">probe</a> |
 | <a href="../modules/fifo.html#">fifo</a> | Kernel FIFO queues |
+| <a href="../modules/completion.html#">completion</a> | Kernel completions: <code>new</code>, <code>complete</code>, <code>wait</code> |
 | <a href="../modules/signal.html#">signal</a> | POSIX signal management |
 | <a href="../modules/byteorder.html#">byteorder</a> | Network byte order conversions |
 | <a href="../modules/darken.html#">darken</a> | AES-256-CTR encrypted script execution |
@@ -471,6 +509,35 @@ stops the probe runtime.</p>
 </code></pre>
 
 
+<h3>dropreason</h3>
+
+<p><a href="examples/dropreason/monitor.lua">dropreason</a> answers "why is my packet dying?":
+a kprobe on <code>kfree_skb_reason()</code> reads the drop reason off the probed function's
+arguments and counts the drops that reach it by name (<a href="../modules/linux.dropreason.html#">linux.dropreason</a>) in an
+RCU table published on the shared environment (<a href="../modules/lunatik.html#_ENV">lunatik._ENV</a>). A drop freed from
+hardirq (<code>dev_kfree_skb_any()</code>) or as a segment list (<code>kfree_skb_list()</code>) takes
+another path and is not counted.
+<a href="examples/dropreason/report.lua">report</a> reads those counts live from the REPL.
+The first drop matching <code>WATCH</code> also has its registers and call trace dumped to
+<code>dmesg</code>, which is what names the drop site.</p>
+
+<h4>Usage</h4>
+
+<pre><code> sudo make examples_install                            # installs examples
+ sudo lunatik run examples/dropreason/monitor hardirq  # arms the kprobe
+ echo x &gt; /dev/udp/127.0.0.1/9999                      # trigger a NO_SOCKET drop
+ sudo lunatik                                          # opens the kernel REPL
+ &gt; drops = require("examples.dropreason.report")
+ &gt; drops.NO_SOCKET
+ 1
+ &gt; drops.report()                                      # counts by reason
+       1  NO_SOCKET
+       6  TCP_OLD_DATA
+     152  NOT_SPECIFIED
+ sudo lunatik stop examples/dropreason/monitor
+</code></pre>
+
+
 <h3>ifquarantine</h3>
 
 <p><a href="examples/ifquarantine">ifquarantine</a> composes two notifier chains to build
@@ -481,10 +548,10 @@ released from quarantine by writing <code>allow=&lt;name&gt;</code> to <code>/de
 re-denied with <code>deny=&lt;name&gt;</code>; inspected with <code>cat /dev/ifquarantine</code>.</p>
 
 <p>The control runtime (process context) owns <a href="../modules/notifier.html#netdevice">notifier.netdevice</a> and the
-device; it spawns a child softirq runtime with the netfilter hook, sharing
-the quarantine set via <a href="../modules/rcu.html#table">rcu.table</a> through <code>runtime:resume()</code>. Illustrates
-cross-subsystem composition between two notifier chains of different
-execution contexts.</p>
+device; it runs the netfilter hook as a softirq percpu script, one runtime
+per CPU sharing the hook, and hands each the quarantine set via <a href="../modules/rcu.html#table">rcu.table</a>
+through <code>percpu:resume()</code>. Illustrates cross-subsystem composition between
+two notifier chains of different execution contexts.</p>
 
 <h4>Usage</h4>
 
@@ -493,7 +560,7 @@ execution contexts.</p>
  sudo cat /dev/ifquarantine                         # lists known interfaces and verdict
  sudo sh -c "echo 'allow=eth0' &gt; /dev/ifquarantine" # lift quarantine on eth0
  sudo sh -c "echo 'deny=eth0'  &gt; /dev/ifquarantine" # re-apply quarantine
- sudo lunatik stop examples/ifquarantine/control    # stops both runtimes
+ sudo lunatik stop examples/ifquarantine/control    # stops both scripts
 </code></pre>
 
 
@@ -567,6 +634,7 @@ This script drops any outbound DNS packet with question matching the blacklist p
 
 <pre><code> sudo make examples_install              # installs examples
  sudo lunatik run examples/dnsblock/nf_dnsblock softirq # runs the Lua kernel script
+ sudo lunatik run examples/dnsblock/nf_dnsblock softirq percpu  # or one runtime per CPU, sharing the hook
 </code></pre>
 
 
@@ -586,6 +654,7 @@ wants to change the DNS response from <code>192.168.10.1</code> to <code>10.1.2.
 
  # run the Lua kernel script
  sudo lunatik run examples/dnsdoctor/nf_dnsdoctor softirq
+ sudo lunatik run examples/dnsdoctor/nf_dnsdoctor softirq percpu    # or one runtime per CPU, sharing the hook
 
  # test the setup, a response with IP 10.1.2.3 should be returned
  dig lunatik.com
@@ -623,6 +692,48 @@ and <code>2001:4860:4860::8888</code> (IPv6).</p>
 
  # cleanup
  sudo examples/tcpreject/cleanup.sh
+</code></pre>
+
+
+<h3>sniclassify</h3>
+
+<p><a href="examples/sniclassify">sniclassify</a> is a kernel extension composed by
+a TC/eBPF classifier program attached on egress,
+a Lua kernel script to classify <a href="https://datatracker.ietf.org/doc/html/rfc3546#section-3.1">SNI</a> traffic.
+This kernel extension extracts server name and assigns traffic
+classes according to a Lua <a href="examples/sniclassify/sni.lua#L26">policy table</a>.</p>
+
+<p>Install the classifier:</p>
+
+
+<pre>
+sudo make btf_install         # needed to export <span class="function-name">the</span> <span class="string">'bpf_luatc_run'</span> kfunc
+sudo make examples_install    # installs examples
+make ebpf                     # builds the TC/eBPF program
+sudo make ebpf_install        # installs the TC/eBPF program
+</pre>
+
+
+<p>Run the classifier and set up the HTB classes on an interface:</p>
+
+<pre>
+sudo ./examples/sniclassify/setup.sh eth0
+</pre>
+
+
+<p>Tear it down with:</p>
+
+<pre>
+sudo ./examples/sniclassify/cleanup.sh eth0
+</pre>
+
+
+<p>The classifier inspects outbound TLS ClientHello packets, extracts the SNI
+field, and assigns a traffic class according to the Lua policy table.</p>
+
+<p>Verify and test:</p>
+<pre><code> sudo tc filter show dev eth0
+ sudo journalctl -ft kernel
 </code></pre>
 
 
@@ -765,7 +876,7 @@ For more details, see its <a href="https://github.com/luainkernel/klibc/blob/lun
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2026-08-18 19:09:29 </i>
+<i style="float:right;">Last updated 2026-09-14 14:36:40 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

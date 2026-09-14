@@ -35,6 +35,7 @@
 <ul>
 <li><a href="#lunatik">lunatik</a></li>
 <li><a href="#Class_runtime">Class runtime </a></li>
+<li><a href="#Class_percpu">Class percpu </a></li>
 </ul>
 
 
@@ -55,6 +56,7 @@
   <li><a href="../modules/lighten.html">lighten</a></li>
   <li><a href="../modules/linux.html">linux</a></li>
   <li><a href="../modules/linux.bpf.html">linux.bpf</a></li>
+  <li><a href="../modules/linux.dropreason.html">linux.dropreason</a></li>
   <li><a href="../modules/linux.eth.html">linux.eth</a></li>
   <li><a href="../modules/linux.genl.html">linux.genl</a></li>
   <li><a href="../modules/linux.kbd.html">linux.kbd</a></li>
@@ -64,11 +66,13 @@
   <li><a href="../modules/linux.nl80211.html">linux.nl80211</a></li>
   <li><a href="../modules/linux.notify.html">linux.notify</a></li>
   <li><a href="../modules/linux.rtnetlink.html">linux.rtnetlink</a></li>
+  <li><a href="../modules/linux.scx.html">linux.scx</a></li>
   <li><a href="../modules/linux.signal.html">linux.signal</a></li>
   <li><a href="../modules/linux.socket.html">linux.socket</a></li>
   <li><a href="../modules/linux.stat.html">linux.stat</a></li>
   <li><a href="../modules/linux.syscall.html">linux.syscall</a></li>
   <li><a href="../modules/linux.task.html">linux.task</a></li>
+  <li><a href="../modules/linux.tc.html">linux.tc</a></li>
   <li><a href="../modules/linux.vt.html">linux.vt</a></li>
   <li><a href="../modules/linux.xdp.html">linux.xdp</a></li>
   <li><strong>lunatik</strong></li>
@@ -96,6 +100,7 @@
   <li><a href="../modules/notifier.html">notifier</a></li>
   <li><a href="../modules/probe.html">probe</a></li>
   <li><a href="../modules/rcu.html">rcu</a></li>
+  <li><a href="../modules/sched.html">sched</a></li>
   <li><a href="../modules/set.html">set</a></li>
   <li><a href="../modules/signal.html">signal</a></li>
   <li><a href="../modules/skb.html">skb</a></li>
@@ -106,6 +111,8 @@
   <li><a href="../modules/struct.html">struct</a></li>
   <li><a href="../modules/syscall.html">syscall</a></li>
   <li><a href="../modules/syscall.table.html">syscall.table</a></li>
+  <li><a href="../modules/task.html">task</a></li>
+  <li><a href="../modules/tc.html">tc</a></li>
   <li><a href="../modules/thread.html">thread</a></li>
   <li><a href="../modules/xdp.html">xdp</a></li>
 </ul>
@@ -117,6 +124,7 @@
   <li><a href="../classes/crypto_rng.html">crypto_rng</a></li>
   <li><a href="../classes/crypto_shash.html">crypto_shash</a></li>
   <li><a href="../classes/crypto_skcipher.html">crypto_skcipher</a></li>
+  <li><a href="../classes/skb.attr.html">skb.attr</a></li>
 </ul>
 <h2>Topics</h2>
 <ul class="">
@@ -142,10 +150,14 @@
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#cpu">cpu ()</a></td>
-	<td class="summary">Returns the CPU id of a percpu runtime instance.</td>
+	<td class="summary">Returns the CPU id a percpu runtime serves.</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#runtime">runtime (script[, context="process"[, cpu=-1]])</a></td>
+	<td class="name" nowrap><a href="#percpu">percpu (script[, context="process"])</a></td>
+	<td class="summary">Creates one runtime per CPU id, each loading the given script in the calling context.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#runtime">runtime (script[, context="process"])</a></td>
 	<td class="summary">Creates a new Lunatik runtime executing the given script.</td>
 	</tr>
 </table>
@@ -158,6 +170,17 @@
 	<tr>
 	<td class="name" nowrap><a href="#runtime:stop">runtime:stop ()</a></td>
 	<td class="summary">Stops the runtime and releases all associated kernel resources.</td>
+	</tr>
+</table>
+<h2><a href="#Class_percpu">Class percpu </a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#percpu:resume">percpu:resume (...)</a></td>
+	<td class="summary">Resumes every runtime, as <a href="../modules/lunatik.html#runtime:resume">runtime:resume</a> does, delivering the same objects to each.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#percpu:stop">percpu:stop ()</a></td>
+	<td class="summary">Closes the objects the runtimes share, then every runtime, releasing their Lua states.</td>
 	</tr>
 </table>
 
@@ -194,7 +217,7 @@
     <strong>cpu ()</strong>
     </dt>
     <dd>
-    Returns the CPU id of a percpu runtime instance.
+    Returns the CPU id a percpu runtime serves.
  Ranges from <code>0</code> to <code>linux.numcpus() - 1</code>; see <code>runner.run</code>.
 
 
@@ -203,7 +226,7 @@
     <ol>
 
            <span class="types"><span class="type">integer</span></span>
-        instance CPU id, or <code>nil</code> on a plain runtime
+        CPU id, or <code>nil</code> on a plain runtime
     </ol>
 
 
@@ -211,8 +234,46 @@
 
 </dd>
     <dt>
+    <a name = "percpu"></a>
+    <strong>percpu (script[, context="process"])</strong>
+    </dt>
+    <dd>
+    Creates one runtime per CPU id, each loading the given script in the calling context.
+ The runtimes are dispatched by CPU: see <a href="../modules/lunatik.html#cpu">lunatik.cpu</a> and <code>runner.run</code>.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">script</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>
+         script name (e.g., <code>&quot;mymod&quot;</code> loads <code>/lib/modules/lua/mymod.lua</code>)
+        </li>
+        <li><span class="parameter">context</span>
+            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.4">string</a></span>
+         execution context, as in <a href="../modules/lunatik.html#runtime">lunatik.runtime</a>
+         (<em>default</em> "process")
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><a class="type" href="../modules/lunatik.html#percpu">percpu</a></span>
+
+
+
+    </ol>
+
+    <h3>Raises:</h3>
+    if allocation fails or the script errors on load, after releasing the runtimes
+   already created
+
+
+
+</dd>
+    <dt>
     <a name = "runtime"></a>
-    <strong>runtime (script[, context="process"[, cpu=-1]])</strong>
+    <strong>runtime (script[, context="process"])</strong>
     </dt>
     <dd>
     Creates a new Lunatik runtime executing the given script.
@@ -232,13 +293,6 @@
    Use <code>&quot;softirq&quot;</code> for hooks that fire in softirq context (netfilter, XDP).
    Use <code>&quot;hardirq&quot;</code> for hooks that fire in hardirq context (kprobes).
          (<em>default</em> "process")
-        </li>
-        <li><span class="parameter">cpu</span>
-            <span class="types"><span class="type">integer</span></span>
-         percpu instance CPU id; the runner passes it when
-   creating <code>run &lt;script&gt; percpu</code> instances. A runtime created directly with a
-   cpu claims to be that instance without being registered for dispatch.
-         (<em>default</em> -1)
         </li>
     </ul>
 
@@ -270,12 +324,13 @@
     </dt>
     <dd>
     Resumes a yielded runtime, analogous to <a href="https://www.lua.org/manual/5.4/manual.html#pdf-coroutine.resume">coroutine.resume</a>.
+ Only Lunatik objects cross between the runtimes, in either direction.
 
 
     <h3>Parameters:</h3>
     <ul>
         <li><span class="parameter">...</span>
-         values delivered to the script as return values of <code>coroutine.yield()</code>
+         objects delivered to the script as return values of <code>coroutine.yield()</code>
         </li>
     </ul>
 
@@ -283,11 +338,13 @@
     <ol>
 
            <span class="types"><span class="type">vararg</span></span>
-        values passed to the next <code>coroutine.yield()</code>, or returned by the script
+        objects passed to the next <code>coroutine.yield()</code>, or returned by the script
     </ol>
 
     <h3>Raises:</h3>
-    if the runtime errors on resumption
+     "invalid object" or "cannot share SINGLE object" if a value cannot cross, numbering the
+   arguments on the way in and the yielded values on the way back, or the error raised on
+   resumption
 
 
 
@@ -307,13 +364,63 @@
 
 </dd>
 </dl>
+    <h2 class="section-header has-description"><a name="Class_percpu"></a>Class percpu </h2>
+
+          <div class="section-description">
+          Set of runtimes, one per CPU id, running the same script.  A callback dispatched
+ through it reaches the runtime of the CPU it fired on.
+          </div>
+    <dl class="function">
+    <dt>
+    <a name = "percpu:resume"></a>
+    <strong>percpu:resume (...)</strong>
+    </dt>
+    <dd>
+    Resumes every runtime, as <a href="../modules/lunatik.html#runtime:resume">runtime:resume</a> does, delivering the same objects to each.  Nothing
+ comes back: a broadcast has no single set of values to return, so what a runtime yields is
+ dropped.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">...</span>
+         objects delivered to each runtime as the return values of its <code>coroutine.yield()</code>
+        </li>
+    </ul>
+
+
+    <h3>Raises:</h3>
+     "null pointer dereference" if the object has been stopped; otherwise the error of the
+   first runtime that refuses a value it cannot carry or raises on resumption, naming its CPU,
+   with the runtimes after it not resumed. A runtime that refuses a value stays where it yielded;
+   one that raises is dead, so every later resume delivers to the CPUs before it again and fails
+   on it again
+
+
+
+</dd>
+    <dt>
+    <a name = "percpu:stop"></a>
+    <strong>percpu:stop ()</strong>
+    </dt>
+    <dd>
+    Closes the objects the runtimes share, then every runtime, releasing their Lua states.
+
+
+
+
+
+
+
+</dd>
+</dl>
 
 
 </div> <!-- id="content" -->
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/lunarmodules/LDoc">LDoc 1.5.0</a></i>
-<i style="float:right;">Last updated 2026-08-18 19:09:29 </i>
+<i style="float:right;">Last updated 2026-09-14 14:36:40 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>

@@ -33,10 +33,20 @@
 
 <h2>Contents</h2>
 <ul>
-<li><a href="#Class_route">Class route </a></li>
+<li><a href="#Methods">Methods</a></li>
 </ul>
 
 
+<h2>Classes</h2>
+<ul class="nowrap">
+  <li><a href="../classes/crypto.hkdf.html">crypto.hkdf</a></li>
+  <li><a href="../classes/crypto_aead.html">crypto_aead</a></li>
+  <li><a href="../classes/crypto_comp.html">crypto_comp</a></li>
+  <li><a href="../classes/crypto_rng.html">crypto_rng</a></li>
+  <li><a href="../classes/crypto_shash.html">crypto_shash</a></li>
+  <li><a href="../classes/crypto_skcipher.html">crypto_skcipher</a></li>
+  <li><strong>skb.attr</strong></li>
+</ul>
 <h2>Modules</h2>
 <ul class="nowrap">
   <li><a href="../modules/bpf.html">bpf</a></li>
@@ -92,7 +102,7 @@
   <li><a href="../modules/netlink.rt.addr.html">netlink.rt.addr</a></li>
   <li><a href="../modules/netlink.rt.link.html">netlink.rt.link</a></li>
   <li><a href="../modules/netlink.rt.object.html">netlink.rt.object</a></li>
-  <li><strong>netlink.rt.route</strong></li>
+  <li><a href="../modules/netlink.rt.route.html">netlink.rt.route</a></li>
   <li><a href="../modules/netlink.rt.rule.html">netlink.rt.rule</a></li>
   <li><a href="../modules/netlink.session.html">netlink.session</a></li>
   <li><a href="../modules/notifier.html">notifier</a></li>
@@ -114,16 +124,6 @@
   <li><a href="../modules/thread.html">thread</a></li>
   <li><a href="../modules/xdp.html">xdp</a></li>
 </ul>
-<h2>Classes</h2>
-<ul class="nowrap">
-  <li><a href="../classes/crypto.hkdf.html">crypto.hkdf</a></li>
-  <li><a href="../classes/crypto_aead.html">crypto_aead</a></li>
-  <li><a href="../classes/crypto_comp.html">crypto_comp</a></li>
-  <li><a href="../classes/crypto_rng.html">crypto_rng</a></li>
-  <li><a href="../classes/crypto_shash.html">crypto_shash</a></li>
-  <li><a href="../classes/crypto_skcipher.html">crypto_skcipher</a></li>
-  <li><a href="../classes/skb.attr.html">skb.attr</a></li>
-</ul>
 <h2>Topics</h2>
 <ul class="">
   <li><a href="../topics/README.md.html">README</a></li>
@@ -133,36 +133,22 @@
 
 <div id="content">
 
-<h1>Module <code>netlink.rt.route</code></h1>
-<p>Kernel routing table interface.</p>
-<p> A <a href="../modules/netlink.session.html#">netlink.session</a> specialization over the
- <code>NETLINK_ROUTE</code> protocol: create an instance with <code>netlink.rt.route()</code>, then
- add, delete and list routes; the underlying socket is closed by <code>close()</code>
- (or the to-be-closed <code>__close</code>). All methods block and require a sleepable
- runtime.</p>
+<h1>Class <code>skb.attr</code></h1>
+<p>Attribute view over an <a href="../modules/skb.html#">skb</a>: reads and writes packet fields as table keys
+ (<code>view.mark</code>, <code>view.priority</code>) instead of method calls.</p>
+<p> The wrapped packet
+ stays reachable as <code>view.skb</code>.</p>
     <h3>See also:</h3>
     <ul>
-         <a href="../modules/netlink.rt.object.html#">netlink.rt.object</a>
+         <a href="../modules/skb.html#">skb</a>
     </ul>
 
 
-<h2><a href="#Class_route">Class route </a></h2>
+<h2><a href="#Methods">Methods</a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#route:add">route:add (opts)</a></td>
-	<td class="summary">Adds a route to the kernel routing table.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#route:del">route:del (opts)</a></td>
-	<td class="summary">Deletes a route from the kernel routing table.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#route:list">route:list ([family=AF_UNSPEC])</a></td>
-	<td class="summary">Lists all routes from the kernel routing tables.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#route:new">route:new ([o])</a></td>
-	<td class="summary">Creates a new route object.</td>
+	<td class="name" nowrap><a href="#skb.attr:new">skb.attr:new (skb)</a></td>
+	<td class="summary">Wraps an <a href="../modules/skb.html#">skb</a> in an attribute view.</td>
 	</tr>
 </table>
 
@@ -170,110 +156,33 @@
 <br/>
 
 
-    <h2 class="section-header "><a name="Class_route"></a>Class route </h2>
+    <h2 class="section-header "><a name="Methods"></a>Methods</h2>
 
     <dl class="function">
     <dt>
-    <a name = "route:add"></a>
-    <strong>route:add (opts)</strong>
+    <a name = "skb.attr:new"></a>
+    <strong>skb.attr:new (skb)</strong>
     </dt>
     <dd>
-    Adds a route to the kernel routing table.
+    Wraps an <a href="../modules/skb.html#">skb</a> in an attribute view.
 
 
     <h3>Parameters:</h3>
     <ul>
-        <li><span class="parameter">opts</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-         route parameters: optional <code>family</code> (default <code>AF_INET</code>),
-   <code>dst_len</code>, <code>dst</code>, <code>gateway</code>, <code>oif</code>, <a href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a>, <code>protocol</code>, <code>scope</code>, <code>rtype</code>.
-        </li>
-    </ul>
-
-
-
-
-
-</dd>
-    <dt>
-    <a name = "route:del"></a>
-    <strong>route:del (opts)</strong>
-    </dt>
-    <dd>
-    Deletes a route from the kernel routing table.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">opts</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-         route parameters: optional <code>family</code> (default <code>AF_INET</code>),
-   <code>dst_len</code>, <code>dst</code>, <code>oif</code>, <a href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a>.
-        </li>
-    </ul>
-
-
-
-
-
-</dd>
-    <dt>
-    <a name = "route:list"></a>
-    <strong>route:list ([family=AF_UNSPEC])</strong>
-    </dt>
-    <dd>
-    Lists all routes from the kernel routing tables.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">family</span>
-            <span class="types"><span class="type">integer</span></span>
-         address family.
-         (<em>default</em> AF_UNSPEC)
+        <li><span class="parameter">skb</span>
+            <span class="types"><span class="type">skb</span></span>
+         the packet to view.
         </li>
     </ul>
 
     <h3>Returns:</h3>
     <ol>
 
-           <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-        list of route tables.
+           <span class="types"><a class="type" href="../classes/skb.attr.html">attr</a></span>
+        the attribute view.
     </ol>
 
 
-
-
-</dd>
-    <dt>
-    <a name = "route:new"></a>
-    <strong>route:new ([o])</strong>
-    </dt>
-    <dd>
-    Creates a new route object.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">o</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-         an initial object table.
-         (<em>optional</em>)
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><a class="type" href="../modules/netlink.rt.route.html#route">route</a></span>
-        the new route object.
-    </ol>
-
-
-    <h3>See also:</h3>
-    <ul>
-         <a href="../modules/class.html#">class</a>
-    </ul>
 
 
 </dd>

@@ -33,7 +33,7 @@
 
 <h2>Contents</h2>
 <ul>
-<li><a href="#Class_route">Class route </a></li>
+<li><a href="#Tables">Tables</a></li>
 </ul>
 
 
@@ -70,7 +70,7 @@
   <li><a href="../modules/linux.stat.html">linux.stat</a></li>
   <li><a href="../modules/linux.syscall.html">linux.syscall</a></li>
   <li><a href="../modules/linux.task.html">linux.task</a></li>
-  <li><a href="../modules/linux.tc.html">linux.tc</a></li>
+  <li><strong>linux.tc</strong></li>
   <li><a href="../modules/linux.vt.html">linux.vt</a></li>
   <li><a href="../modules/linux.xdp.html">linux.xdp</a></li>
   <li><a href="../modules/lunatik.html">lunatik</a></li>
@@ -92,7 +92,7 @@
   <li><a href="../modules/netlink.rt.addr.html">netlink.rt.addr</a></li>
   <li><a href="../modules/netlink.rt.link.html">netlink.rt.link</a></li>
   <li><a href="../modules/netlink.rt.object.html">netlink.rt.object</a></li>
-  <li><strong>netlink.rt.route</strong></li>
+  <li><a href="../modules/netlink.rt.route.html">netlink.rt.route</a></li>
   <li><a href="../modules/netlink.rt.rule.html">netlink.rt.rule</a></li>
   <li><a href="../modules/netlink.session.html">netlink.session</a></li>
   <li><a href="../modules/notifier.html">notifier</a></li>
@@ -133,36 +133,16 @@
 
 <div id="content">
 
-<h1>Module <code>netlink.rt.route</code></h1>
-<p>Kernel routing table interface.</p>
-<p> A <a href="../modules/netlink.session.html#">netlink.session</a> specialization over the
- <code>NETLINK_ROUTE</code> protocol: create an instance with <code>netlink.rt.route()</code>, then
- add, delete and list routes; the underlying socket is closed by <code>close()</code>
- (or the to-be-closed <code>__close</code>). All methods block and require a sleepable
- runtime.</p>
-    <h3>See also:</h3>
-    <ul>
-         <a href="../modules/netlink.rt.object.html#">netlink.rt.object</a>
-    </ul>
+<h1>Module <code>linux.tc</code></h1>
+<p>Linux kernel constants exposed under <a href="../modules/linux.tc.html#">linux.tc</a>.</p>
+<p> Values are populated at build time from the kernel headers.</p>
 
 
-<h2><a href="#Class_route">Class route </a></h2>
+<h2><a href="#Tables">Tables</a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#route:add">route:add (opts)</a></td>
-	<td class="summary">Adds a route to the kernel routing table.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#route:del">route:del (opts)</a></td>
-	<td class="summary">Deletes a route from the kernel routing table.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#route:list">route:list ([family=AF_UNSPEC])</a></td>
-	<td class="summary">Lists all routes from the kernel routing tables.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#route:new">route:new ([o])</a></td>
-	<td class="summary">Creates a new route object.</td>
+	<td class="name" nowrap><a href="#constants">constants</a></td>
+	<td class="summary">TC verdicts and flags.</td>
 	</tr>
 </table>
 
@@ -170,110 +150,21 @@
 <br/>
 
 
-    <h2 class="section-header "><a name="Class_route"></a>Class route </h2>
+    <h2 class="section-header "><a name="Tables"></a>Tables</h2>
 
     <dl class="function">
     <dt>
-    <a name = "route:add"></a>
-    <strong>route:add (opts)</strong>
+    <a name = "constants"></a>
+    <strong>constants</strong>
     </dt>
     <dd>
-    Adds a route to the kernel routing table.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">opts</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-         route parameters: optional <code>family</code> (default <code>AF_INET</code>),
-   <code>dst_len</code>, <code>dst</code>, <code>gateway</code>, <code>oif</code>, <a href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a>, <code>protocol</code>, <code>scope</code>, <code>rtype</code>.
-        </li>
-    </ul>
+    TC verdicts and flags.
+ Mirrors <code>TC_*</code> defines in <code>&lt;uapi/linux/pkt_cls.h&gt;</code>.
 
 
 
 
 
-</dd>
-    <dt>
-    <a name = "route:del"></a>
-    <strong>route:del (opts)</strong>
-    </dt>
-    <dd>
-    Deletes a route from the kernel routing table.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">opts</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-         route parameters: optional <code>family</code> (default <code>AF_INET</code>),
-   <code>dst_len</code>, <code>dst</code>, <code>oif</code>, <a href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a>.
-        </li>
-    </ul>
-
-
-
-
-
-</dd>
-    <dt>
-    <a name = "route:list"></a>
-    <strong>route:list ([family=AF_UNSPEC])</strong>
-    </dt>
-    <dd>
-    Lists all routes from the kernel routing tables.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">family</span>
-            <span class="types"><span class="type">integer</span></span>
-         address family.
-         (<em>default</em> AF_UNSPEC)
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-        list of route tables.
-    </ol>
-
-
-
-
-</dd>
-    <dt>
-    <a name = "route:new"></a>
-    <strong>route:new ([o])</strong>
-    </dt>
-    <dd>
-    Creates a new route object.
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">o</span>
-            <span class="types"><a class="type" href="https://www.lua.org/manual/5.4/manual.html#6.6">table</a></span>
-         an initial object table.
-         (<em>optional</em>)
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-           <span class="types"><a class="type" href="../modules/netlink.rt.route.html#route">route</a></span>
-        the new route object.
-    </ol>
-
-
-    <h3>See also:</h3>
-    <ul>
-         <a href="../modules/class.html#">class</a>
-    </ul>
 
 
 </dd>
